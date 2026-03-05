@@ -19,6 +19,7 @@ RunPath(movement, name := "", vars := "") {
 	#Include "QPC.ahk"
 	#Include "Hypersleep.ahk"
 	#Include "Move.ahk"
+	#Include "JSON.ahk"
 
 	movespeed := ' Alt.Movespeed '
 	both			:= (Mod(movespeed*1000, 1265) = 0) || (Mod(Round((movespeed+0.005)*1000), 1265) = 0)
@@ -124,6 +125,7 @@ PathVars() {
 	(
 		'
 	HiveSlot := ' Alt.HiveSlot '
+	AltNumber := ' Alt.AltNumber '
 	IsClaimed := ' Alt.ClaimHiveEnabled '
 	CoordMode "Mouse", "Screen"
 	CoordMode "Pixel", "Screen"

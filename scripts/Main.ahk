@@ -48,13 +48,13 @@ OnExit(Cleanup)
 
 Config.Load()
 
-version := "0.1.0"
+version := "0.2.0"
 
 GetRobloxClientPos()
 
 #Include "%A_ScriptDir%\..\scripts\macros"
 #Include "MainGui.ahk"
-#Include "PassiveScanner.ahk"
+#Include "Tracker.ahk"
 #Include "Warnings.ahk"
 #Include "BoostBar.ahk"
 #Include "AltMacro.ahk"
@@ -91,7 +91,7 @@ class State {
 WindowTracker.Start(50)
 Scheduler.Start()
 
-Scorch := PassiveScanner()
+Track := Tracker()
 Warns := Warnings()
 Boost := BoostBar()
 Alt := AltMacro()
@@ -101,12 +101,14 @@ Main := MainGui()
 Comms := Communicator()
 Fancy := GdipTooltip()
 
+Amazing := GdipTooltip()
 ;SetTimer(grjknnkjrg, 1)
 grjknnkjrg() {
 	GetRobloxClientPos()
 	index := Mod(A_TickCount // 60, 60)
 	offset := 30 - Abs(index - 30)
 	Fancy.Show(bitmaps["anime"], windowX + windowWidth - 230, windowY + offset, 1, 0x00000000)
+	Amazing.Show("YOU WILL DO GOOD THIS BOOST", windowX + windowWidth - 400, windowY + offset + 30)
 }
 F2:: Reload
 F3:: ExitApp
@@ -124,7 +126,7 @@ Cleanup(*) {
 	Config.WriteIni()
 	sleep 20
 
-	try Scorch.Cleanup()
+	try Track.Cleanup()
 	try Warns.Cleanup()
 	try Boost.Cleanup()
 	try Alt.Cleanup()

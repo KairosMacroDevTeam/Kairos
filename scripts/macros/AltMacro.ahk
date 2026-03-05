@@ -69,7 +69,8 @@ class AltMacro {
 		sleep 500
 
 		loop {
-			MouseMove windowX + (windowWidth // 2), windowY + (windowHeight // 2)
+			if !this.Shiftlock
+				MouseMove windowX + (windowWidth // 2), windowY + (windowHeight // 2)
 			click "down"
 			if !this.IsRunning {
 				click "up"
@@ -609,6 +610,9 @@ class AltMacro {
 
 		if !GetRobloxClientPos()
 			return false
+
+		if Config.Get("Alt", "IgnoreInactiveHoney", 0)
+			return true
 
 		pBMScreen := Gdip_BitmapFromScreen(windowX + windowWidth // 2 - 90 "|" windowY + State.offsetY "|70|34")
 		if (Gdip_ImageSearch(pBMScreen, a, , , , , , 20) > 0) {

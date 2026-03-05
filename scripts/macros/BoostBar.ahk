@@ -15,14 +15,15 @@ class Conditions {
 		, "scorch", { key: "scorch_buff", var: 21, time: 0, type: "buff", inv: "scorch" }
 		, "smoothie", { key: "smoothie", var: 4, time: 1, type: "buff" }
 		, "popstar", { key: "popstar_buff", var: 21, time: 0, type: "buff", inv: "popstar" }
-		, "baller", { key: "baller", var: 0, time: 0, type: "buff" }
+		, "gummy", { key: "gummy_buff", var: 20, time: 0, type: "buff", inv: "gummy" }
+		, "baller", { key: "gummyballer", var: 0, time: 0, type: "buff" }
 	)
 
 	bottomBuff := Map(
-		"gummy", { key: "gummy", var: 0, time: 0, type: "buff" }
-		, "shower", { key: "shower", var: 0, time: 0, type: "buff" }
+		"shower", { key: "shower", var: 0, time: 0, type: "buff" }
 		, "scorch", { key: "scorch", var: 30, time: 0, type: "check" }
 		, "popstar", { key: "popstar", var: 30, time: 0, type: "check" }
+		, "gummy", { key: "gummystar", var: 30, time: 0, type: "check" }
 	)
 
 	Modes := Map(
@@ -108,6 +109,7 @@ class Conditions {
 		if !pBitmap
 			return results
 
+
 		for name, data in list {
 			found := false
 			val := 0
@@ -140,7 +142,7 @@ class Conditions {
 
 	UpdateStreak(name, found, val) {
 		static Streak := Map("glitter", 0, "smoothie", 0)
-		static Thresholds := Map("glitter", 0.01, "smoothie", 0.01)
+		static Thresholds := Map("glitter", 0.02, "smoothie", 0.02)
 
 		if (found && val > 0 && val <= Thresholds[name]) {
 			Streak[name] += 1

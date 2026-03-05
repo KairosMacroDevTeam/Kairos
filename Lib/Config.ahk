@@ -10,7 +10,7 @@ class Config {
             , "WarnsEnabled", 0
             , "BoostBarEnabled", 0
             , "AltMacroEnabled", 0
-            , "PassiveScannerEnabled", 0
+            , "TrackerEnabled", 0
             , "KeyAlignmentEnabled", 0
             , "MagnifierEnabled", 0
             , "AlwaysOnTop", 0
@@ -35,6 +35,7 @@ class Config {
             , "SprinklerDistance", 1
             , "PrivServer", ""
             , "ClaimHive", 1
+            , "IgnoreInactiveHoney", 0
         )
         , "BoostBar", Map(
             "SlotActive1", 0, "SlotTimer1", 100, "SlotMode1", "Timer"
@@ -51,7 +52,7 @@ class Config {
             , "Volume", 25
             , "SoundFile", "C:\Windows\Media\Windows Critical Stop.wav"
         )
-        , "PassiveScanner", Map(
+        , "Tracker", Map(
             "Passives", "Scorch"
         )
         , "KeyAlignment", Map(

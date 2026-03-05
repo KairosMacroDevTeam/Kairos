@@ -63,21 +63,31 @@ class KeyAlignment {
 		}
 	}
 
-	RegisterActionHotkey(State) {
+	RegisterActionHotkey(ToggleState) {
 		try {
-			if (State)
-				Hotkey(this.CurrentKey, (*) => this.PerformAction(), "On")
+			if (ToggleState)
+				Hotkey("$" this.CurrentKey, (*) => this.PerformAction(), "On")
 			else
-				Hotkey(this.CurrentKey, "Off")
+				Hotkey("$" this.CurrentKey, "Off")
 		}
 	}
 
 	PerformAction() {
-		if (this.IsRebinding || this.IsActionRunning || !this.IsRunning || State.IsPaused)
+		if (this.IsRebinding || this.IsActionRunning) {
+			Hotkey("$" this.CurrentKey, "Off")
 			return
+		}
+
+		IF (!this.IsRunning || State.IsPaused) {
+			SetKeyDelay -1, 20
+			SendEvent "{Blind}{" this.CurrentKey "}"
+			Hotkey("$" this.CurrentKey, "On")
+			return
+		}
 
 		this.IsActionRunning := true
 		wasRightClick := GetKeyState("RButton", "P")
+
 		if (wasRightClick)
 			Click "Up Right"
 		Send "{" RotRight "}"

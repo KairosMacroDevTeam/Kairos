@@ -1,18 +1,19 @@
 class MainGui {
 	Selectors := Map()
 	Gui := unset
-	FeatureList := ["Warns", "Boost Bar", "Alt Macro", "Key Alignment", "Passive Scanner", "Magnifier"]
+	FeatureList := ["Warns", "Boost Bar", "Alt Macro", "Key Alignment", "Tracker", "Magnifier"]
 	FwdDown := false
 	BackDown := false
 	LeftDown := false
 	RightDown := false
+	ran := 0
 	__New() {
 		this.Gui := Gui((Config.Get("Main", "AlwaysOnTop", 0) ? "+AlwaysOnTop " : "") " +Border +OwnDialogs", "Kairos")
 		this.Gui.Show("x" Config.Get("Main", "GuiX", A_ScreenWidth // 2 - 200) " y" Config.Get("Main", "GuiY", A_ScreenHeight // 2 - 100) " w400 h220")
 		this.FeatureRefreshers := Map(
 			"BoostBarEnabled", () => (IsSet(Boost) && Boost) ? Boost.RefreshConfig() : 0,
 			"WarnsEnabled", () => (IsSet(Warns) && Warns) ? Warns.RefreshConfig() : 0,
-			"PassiveScannerEnabled", () => (IsSet(Scorch) && Scorch) ? Scorch.RefreshConfig() : 0
+			"TrackerEnabled", () => (IsSet(Track) && Track) ? Track.RefreshConfig() : 0
 		)
 
 		; General UI
@@ -23,7 +24,7 @@ class MainGui {
 		this.Gui.Add("Button", "x75 y198 w65 h20 -Wrap vPauseButton", "Pause (" Config.Get("Main", "PauseHotkey", "F2") ")").OnEvent("Click", this.pause.Bind(this))
 		this.Gui.Add("Button", "x145 y198 w65 h20 -Wrap vStopButton", "Stop (" Config.Get("Main", "StopHotkey", "F3") ")").OnEvent("Click", this.stop.Bind(this))
 
-		TabArr := ["Main", "Alt", "Scanner", "Warnings", "Boost Bar", "Communicator", "Key Alignment"]
+		TabArr := ["Main", "Alt", "Tracker", "Warnings", "Boost Bar", "Communicator", "Key Alignment"]
 		(TabCtrl := this.Gui.Add("Tab", "x0 y-1 w440 h240 -Wrap " (Config.Get("Main", "DarkMode", 1) ? "cFFFFFF" : "C000000"), TabArr)).OnEvent("Change", (*) => TabCtrl.Focus())
 		SendMessage 0x1331, 0, 20, , TabCtrl
 		; --- Main Tab ---
@@ -109,6 +110,9 @@ class MainGui {
 		this.Gui.Add("Text", "x40 y143", "Claim Hive")
 		this.Gui.Add("CheckBox", "x20 y140 w20 h20 vAlt_ClaimHive Checked" Config.Get("Alt", "ClaimHive", 1)).OnEvent("Click", this.SaveConfig.Bind(this))
 
+		this.Gui.Add("Text", "x120 y143", "Ignore Inactive")
+		this.Gui.Add("CheckBox", "x100 y140 w20 h20 vAlt_IgnoreInactiveHoney Checked" Config.Get("Alt", "IgnoreInactiveHoney", 0)).OnEvent("Click", this.SaveConfig.Bind(this))
+
 		this.Gui.Add("Text", "x20 y165", "Priv Server:")
 		this.Gui.Add("Edit", "x80 y163 w110 h20 vAlt_PrivServer", Config.Get("Alt", "PrivServer", "")).OnEvent("Change", this.SaveConfig.Bind(this))
 
@@ -168,25 +172,35 @@ class MainGui {
 		role := Config.Get("Main", "AltMacroEnabled", 0) ? "Client" : "Server"
 		this.Gui.Add("Text", "x60 y130 w200 vCommsStatus", role)
 
-		; --- Scanner Tab ---
-		TabCtrl.UseTab("Scanner")
-		this.GUi.SetFont("w700")
-		this.Gui.Add("GroupBox", "x10 y20 w130 h120")
-		this.Gui.Add("Text", "x20 y22", "Scanner Settings")
+		; --- Tracker Tab ---
+		TabCtrl.UseTab("Tracker")
+		this.Gui.SetFont("w700")
+		this.Gui.Add("GroupBox", "x10 y20 w130 h160")
+		this.Gui.Add("Text", "x20 y22", "Tracker Settings")
 		this.Gui.SetFont("s8 cDefault Norm")
 
-		passives := Config.Get("PassiveScanner", "Passives", "Scorch")
+		passives := Config.Get("Tracker", "Passives", "Scorch")
 		has := (str) => InStr("|" passives "|", "|" str "|")
 
 
-		this.Gui.Add("CheckBox", "x25 y42 w20 h20 vPassiveScanner_Scorch Checked" has("scorch")).OnEvent("Click", this.UpdatePassives.Bind(this))
+		this.Gui.Add("CheckBox", "x25 y42 w20 h20 vTracker_Scorch Checked" has("scorch")).OnEvent("Click", this.UpdatePassives.Bind(this))
 		this.Gui.Add("Text", "x45 y45", "Scorch")
 
-		this.Gui.Add("CheckBox", "x25 y62 w20 h20 vPassiveScanner_PopStar Checked" has("popstar")).OnEvent("Click", this.UpdatePassives.Bind(this))
+		this.Gui.Add("CheckBox", "x25 y62 w20 h20 vTracker_PopStar Checked" has("popstar")).OnEvent("Click", this.UpdatePassives.Bind(this))
 		this.Gui.Add("Text", "x45 y65", "Pop Star")
 
-		this.Gui.Add("CheckBox", "x25 y82 w20 h20 vPassiveScanner_XFlame Checked" has("x-flame")).OnEvent("Click", this.UpdatePassives.Bind(this))
+		this.Gui.Add("CheckBox", "x25 y82 w20 h20 vTracker_XFlame Checked" has("x-flame")).OnEvent("Click", this.UpdatePassives.Bind(this))
 		this.Gui.Add("Text", "x45 y85", "X-Flame")
+
+		this.Gui.Add("CheckBox", "x25 y102 w20 h20 vTracker_GummyStar Checked" has("gummystar")).OnEvent("Click", this.UpdatePassives.Bind(this))
+		this.Gui.Add("Text", "x45 y105", "Gummy Star")
+
+		this.Gui.Add("CheckBox", "x25 y122 w20 h20 vTracker_GummyMorph Checked" has("gummymorph")).OnEvent("Click", this.UpdatePassives.Bind(this))
+		this.Gui.Add("Text", "x45 y125", "Gummy Morph")
+
+		this.Gui.Add("CheckBox", "x25 y142 w20 h20 vTracker_GummyBaller Checked" has("gummyballer")).OnEvent("Click", this.UpdatePassives.Bind(this))
+		this.Gui.Add("Text", "x45 y145", "Gummy Baller")
+
 		; --- Key Alignment Tab ---
 		TabCtrl.UseTab("Key Alignment")
 		this.Gui.SetFont("w700")
@@ -276,10 +290,10 @@ class MainGui {
 	}
 
 	UpdatePassives(GuiCtrl, *) {
-		current := Config.Get("PassiveScanner", "Passives", "Scorch")
+		current := Config.Get("Tracker", "Passives", "Scorch")
 		list := StrSplit(current, "|")
 
-		name := StrLower(StrReplace(GuiCtrl.Name, "PassiveScanner_", ""))
+		name := StrLower(StrReplace(GuiCtrl.Name, "Tracker_", ""))
 		if (name = "xflame")
 			name := "x-flame"
 		
@@ -297,9 +311,9 @@ class MainGui {
 		saveStr := ""
 		for item in newList
 			saveStr .= (A_Index > 1 ? "|" : "") item
-		Config.Set("PassiveScanner", "Passives", saveStr)
+		Config.Set("Tracker", "Passives", saveStr)
 		Config.WriteIni()
-		this.RefreshFeature("PassiveScannerEnabled")
+		this.RefreshFeature("TrackerEnabled")
 	}
 
 	CopyFieldSettings(*) {
@@ -385,9 +399,9 @@ class MainGui {
 			this.RefreshFeature("BoostBarEnabled")
 		else if (Section = "Warns")
 			this.RefreshFeature("WarnsEnabled")
-		else if (Section = "PassiveScanner")
-			this.RefreshFeature("PassiveScannerEnabled")
-		else if (Section = "Main" && (Key = "BoostBarEnabled" || Key = "WarnsEnabled" || Key = "PassiveScannerEnabled"))
+		else if (Section = "Tracker")
+			this.RefreshFeature("TrackerEnabled")
+		else if (Section = "Main" && (Key = "BoostBarEnabled" || Key = "WarnsEnabled" || Key = "TrackerEnabled"))
 			this.RefreshFeature(Key)
 		else if (Section = "Communicator")
 			if IsSet(Comms)
@@ -429,16 +443,15 @@ class MainGui {
 	}
 
 	start(*) {
-		static ran := 0
-		if ran
+		if this.ran
 			return
-		ran++
+		this.ran++
 		State.offsetY := GetYOffset(, &fail)
 		try {
 		if fail
 			msgbox "Failed to get y-Offset, this either means`n1. Your font is NOT the default size (e.g. font scale or broken roblox updates)`n2. Your font is wrong (e.g. custom font w/bloxstrap)`n3. the 'Pollen' text at the top is being covered`n4. Graphical issues`n5. I made a mistake...`n6. You don't have roblox open.", "Kairos", 16
 		}
-		Scorch.Toggle()
+		Track.Toggle()
 		Warns.Toggle()
 		Boost.Toggle()
 		Alt.Toggle()
@@ -448,6 +461,8 @@ class MainGui {
 	}
 
 	pause(*) {
+		if this.ran != 1
+			return
 		State.IsPaused ^= 1
 
 		if (State.IsPaused) {
@@ -455,8 +470,8 @@ class MainGui {
 			this.Gui.Title := "Kairos (Paused)"
 			this.Gui["PauseButton"].Text := "Resume (" Config.Get("Main", "PauseHotkey", "F2") ")"
 
-			if IsSet(Scorch) && Scorch.Fancy
-				Scorch.Fancy.Hide()
+			if IsSet(Track) && Track.Fancy
+				Track.Fancy.Hide()
 			if IsSet(Warns) && Warns.Fancy
 				Warns.Fancy.Hide()
 			if IsSet(Boost) && Boost {
