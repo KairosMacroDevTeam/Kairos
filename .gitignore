@@ -1,0 +1,8 @@
+﻿settings/
+graphs/
+logs/
+*.env.*
+*.test.*
+*.temp.*
+.vscode/
+graph_*.png

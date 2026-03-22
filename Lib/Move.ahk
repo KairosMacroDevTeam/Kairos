@@ -1,4 +1,4 @@
-move(tiles) {
+﻿move(tiles) {
     s := QPC()
     current := DetectMovespeed() + 0.45
     while ((current += DetectMovespeed()) < tiles * 4) {

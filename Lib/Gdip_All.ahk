@@ -1,4 +1,4 @@
-; v1.61
+﻿; v1.61
 ; NOTE: Some functions have been modified/added!
 ; 		To see which functions these are, you can compare with the
 ;		original file at https://github.com/buliasz/AHKv2-Gdip

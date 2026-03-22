@@ -8,6 +8,20 @@ CoordMode "Mouse", "Screen"
 CoordMode "Pixel", "Screen"
 SendMode "Event"
 
+if (A_ScreenDPI != 96) {
+	MsgBox "
+	(
+	Kairos is designed to work at 100% scaling. Please set your display scaling to 100% and restart the script.
+
+	To fix this:
+	1. Right-click on your desktop and select 'Display settings'.
+	2. Under 'Scale', select '100%' from the dropdown menu.
+	
+	The script will close now.
+	)", "Kairos - WARNING!!!", 48 " T30"
+	ExitApp
+}
+
 #Include "%A_ScriptDir%\..\Lib"
 #Include "Config.ahk"
 #Include "Gdip_All.ahk"
@@ -15,17 +29,18 @@ SendMode "Event"
 #Include "Roblox.ahk"
 #Include "Tooltip.ahk"
 #Include "Audio.ahk"
-#Include "Auxiliary.ahk"
-#Include "QPC.ahk"
 #Include "Import.ahk"
 #Include "FrameCache.ahk"
 #Include "Scheduler.ahk"
 #Include "WindowTracker.ahk"
 #Include "Path.ahk"
 #Include "JSON.ahk"
-#Include "nowUnix.ahk"
 #Include "DarkMode.ahk"
 #Include "Dweet.ahk"
+#Include "OCR.ahk"
+#Include "Detection.ahk"
+#Include "Utility.ahk"
+#Include "Scanner.ahk"
 
 if !(pToken := Gdip_Startup())
 	throw Error("GDI+ failed to start, exiting script.")
@@ -41,14 +56,17 @@ if !(pToken := Gdip_Startup())
 #Include "Sprinkler.ahk"
 #Include "Icons.ahk"
 #Include "Images.ahk"
+#Include "StatMonitor_Buffs.ahk"
+#Include "StatMonitor_Icons.ahk"
 
 TraySetIcon "Assets\Images\Kairos.ico"
 
 OnExit(Cleanup)
+OnError(LogError)
 
 Config.Load()
 
-version := "0.2.1"
+version := "0.3.0"
 
 GetRobloxClientPos()
 
@@ -61,6 +79,7 @@ GetRobloxClientPos()
 #Include "KeyAlignment.ahk"
 #Include "MagnifyingGlass.ahk"
 #Include "Communicator.ahk"
+#Include "StatMonitor.ahk"
 
 class State {
 	static IsPaused := false
@@ -85,12 +104,13 @@ class State {
 		, "pepper", { width: 27, height: 21 }
 		, "coconut", { width: 30, height: 21 }
 	)
-	static SprinklerImages := ["saturator", "saturatorWS"]
+	static SprinklerImages := ["saturator", "saturator_blue", "saturator_gold_night", "saturator_blue_night"]
 }
 
 WindowTracker.Start(50)
 Scheduler.Start()
 
+Scanner := ScannerEngine()
 Track := Tracker()
 Warns := Warnings()
 Boost := BoostBar()
@@ -99,6 +119,8 @@ Aligner := KeyAlignment()
 Mag := MagnifyingGlass()
 Main := MainGui()
 Comms := Communicator()
+Stats := StatMonitor()
+
 Fancy := GdipTooltip()
 
 Amazing := GdipTooltip()
@@ -110,8 +132,22 @@ grjknnkjrg() {
 	Fancy.Show(bitmaps["anime"], windowX + windowWidth - 230, windowY + offset, 1, 0x00000000)
 	Amazing.Show("YOU WILL DO GOOD THIS BOOST", windowX + windowWidth - 400, windowY + offset + 30)
 }
-F2:: Reload
-F3:: ExitApp
+/*
+F4:: {
+	Stats.GenerateData()
+	Stats.DrawGraph(A_ScriptDir "\hi.png")
+	if FileExist(A_ScriptDir "\hi.png")
+		Run(A_ScriptDir "\hi.png")
+	else
+		MsgBox("Graph image not found.")
+	if FileExist(A_ScriptDir "\hi.txt")
+		Run(A_ScriptDir "\hi.txt")
+	else
+		MsgBox("Txt file not found.")
+	Stats.Cleanup()
+}
+*/
+; F4:: msgbox Alt.atHive()
 
 Cleanup(*) {
 	Critical
@@ -133,6 +169,28 @@ Cleanup(*) {
 	try Aligner.Cleanup()
 	try Main.Cleanup()
 	try Mag.Cleanup()
+	try Comms.Cleanup()
+	try Stats.Cleanup()
 	try FrameCache.Clear()
 	Gdip_Shutdown(pToken)
+}
+
+LogError(exception, mode) {
+	timeStr := FormatTime(A_Now, "yyyy-MM-dd HH:mm:ss")
+
+	log := "====================`n"
+	log .= "Time: " timeStr "`n"
+	log .= "Error: " exception.Message "`n"
+	log .= "File: " exception.File "`n"
+	log .= "Line: " exception.Line "`n"
+
+	if (exception.Extra != "")
+		log .= "Specifically: " exception.Extra "`n"
+	log .= "Call Stack:`n" exception.Stack "`n"
+	log .= "====================`n`n"
+
+	if !DirExist("logs")
+		DirCreate("logs")
+	try FileAppend(log, A_WorkingDir "\logs\Kairos_crash_log.txt")
+	return 0
 }

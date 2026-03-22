@@ -39,6 +39,16 @@
 		try this.server.SendMessage(JSON.Stringify(payload))
 	}
 
+	BroadcastStart() {
+		if (!this.isEnabled || !this.isServer)
+			return
+		payload := Map(
+			"action", "start"
+			, "timestamp", nowUnix()
+		)
+		try this.server.SendMessage(JSON.Stringify(payload))
+	}
+
 	ReadDweet(*) {
 		if (!this.isEnabled || this.isServer)
 			return
@@ -62,6 +72,10 @@
 					if (Boost.stats.BuffState.Has(name))
 						Boost.stats.BuffState[name] := isActive
 				}
+			}
+		} else if (msg["action"] = "start") {
+			if (IsSet(Main) && IsObject(Main)) {
+				Main.start()
 			}
 		}
 	}

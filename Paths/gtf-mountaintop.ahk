@@ -1,4 +1,4 @@
-gotoRamp()
+﻿gotoRamp()
 gotoCannon()
 send "{" SC_E " down}{" RotRight " 4}"
 sleep 100

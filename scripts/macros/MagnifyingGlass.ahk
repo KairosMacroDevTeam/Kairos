@@ -1,4 +1,4 @@
-class MagnifyingGlass {
+﻿class MagnifyingGlass {
 	IsRunning := false
 	ZoomFactor := 1.3
 	FPS := 30
@@ -22,11 +22,10 @@ class MagnifyingGlass {
 	}
 
 	Toggle() {
-		if (Config.Get("Main", "MagnifierEnabled", 0) && !this.IsRunning) {
+		if (Config.Get("Main", "MagnifierEnabled", 0) && !this.IsRunning)
 			this.Start()
-		} else if this.IsRunning {
+		else if (this.IsRunning)
 			this.Stop()
-		}
 	}
 
 	Start() {

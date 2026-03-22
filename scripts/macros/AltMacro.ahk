@@ -1,4 +1,4 @@
-class AltMacro {
+﻿class AltMacro {
 	IsRunning := false
 	IsActive := false
 	slotMove := [
@@ -25,6 +25,8 @@ class AltMacro {
 		this.FieldDriftComp := Config.Get("Alt", "FieldDriftComp", 1)
 		this.DefaultField := Config.Get("Alt", "DefaultField", "pepper")
 		this.Pattern := Config.Get("Alt", "Pattern", "GeneralBooster")
+		this.UseTool := Config.Get("Alt", "UseTool", 1)
+		this.IgnoreInactiveHoney := Config.Get("Alt", "IgnoreInactiveHoney", 0)
 
 		this.PatternSize := Config.Get("Alt", "PatternSize", 5)
 		this.PatternWidth := Config.Get("Alt", "PatternWidth", 5)
@@ -59,6 +61,12 @@ class AltMacro {
 
 		local inactiveHoney := 0
 		this.Settings()
+
+		; If the Guiding Star cycle is enabled, run that flow instead of the normal Alt loop.
+		;if (Config.Get("Guide", "Enabled", 0)) {
+		;	this.GuideCycle()
+		;	return
+		;}
 		if !(this.Reconnect())
 			this.Reset()
 		fieldName := this.DefaultField
@@ -67,11 +75,14 @@ class AltMacro {
 		this.Rotation()
 		this.EnableShift(1)
 		sleep 500
+		if (IsSet(Boost) && Boost)
+			Boost.stats.BuffState["Timer"] := 1
 
 		loop {
 			if !this.Shiftlock
 				MouseMove windowX + (windowWidth // 2), windowY + (windowHeight // 2)
-			click "down"
+			if this.UseTool
+				click "down"
 			if !this.IsRunning {
 				click "up"
 				break
@@ -142,7 +153,6 @@ class AltMacro {
 		sleep 100
 		send "{" SC_1 "}"
 		sleep 500
-		
 	}
 
 	Rotation() {
@@ -318,7 +328,7 @@ class AltMacro {
 		Send "{" LeftKey " up}{" RightKey " up}{" FwdKey " up}{" BackKey " up}{" SC_Space " up}{F14 up}{" SC_E " up}"
 	}
 
-	ClaimHive() {
+	ClaimHive(ignoreCam := 0) {
 		State.offsetY := GetYOffset()
 		GetImg() {
 			pBMScreen := Gdip_BitmapFromScreen(windowX + (windowWidth // 2) "|" windowY + State.offsetY "|400|125")
@@ -352,7 +362,8 @@ class AltMacro {
 				sleep 500
 			}
 
-			this.DetectSpawn() ; just to fix camera rotation
+			if !ignoreCam
+				this.DetectSpawn() ; just to fix camera rotation
 
 			if system = 1 {
 				movement := this.spawnMoveTo(this.slotMove[this.HiveSlot])
@@ -368,6 +379,10 @@ class AltMacro {
 					Send "{" SC_E " down}"
 					sleep 500
 					Send "{" SC_E " up}"
+					HiveConfirmed := 1
+					MouseMove windowX + 350, windowY + State.offsetY + 100
+					return 1
+				} else if this.atHive() {
 					HiveConfirmed := 1
 					MouseMove windowX + 350, windowY + State.offsetY + 100
 					return 1
@@ -475,6 +490,9 @@ class AltMacro {
 	Reset() {
 		static HiveDown := false
 
+		if (IsSet(Boost) && Boost)
+			Boost.stats.BuffState["Timer"] := 0
+
 		this.EnableShift(0)
 		Loop 5 {
 			ActivateRoblox()
@@ -490,7 +508,7 @@ class AltMacro {
 				n += ((Gdip_ImageSearch(pBMScreen, bitmaps["emptyhealth"], , , , , , 10) || this.HealthBar()) = (n = 0))
 				Gdip_DisposeImage(pBMScreen)
 			}
-			sleep 500
+			sleep 750
 			SetKeyDelay PrevKeyDelay
 
 			if (!this.ClaimHiveEnabled) {
@@ -499,15 +517,7 @@ class AltMacro {
 			} else {
 				if (!this.atHive() && this.DetectSpawn()) {
 					sleep 500
-					MouseMove windowX + 350, windowY + State.offsetY + 100
-					send "{" ZoomOut " 8}"
-					movement := this.spawnMoveTo(this.slotMove[this.HiveSlot])
-					RunPath(movement)
-					KeyWait "F14", "D T5 L"
-					KeyWait "F14", "T120 L"
-					EndPath()
-					sleep 500
-					if this.atHive()
+					if this.ClaimHive(1)
 						return
 				}
 				if (HiveDown)
@@ -564,7 +574,7 @@ class AltMacro {
 		ActivateRoblox()
 		GetRobloxClientPos()
 		pBMScreen := Gdip_BitmapFromScreen(windowX + windowWidth // 2 - 150 "|" windowY + State.offsetY + 40 "|350|60")
-		out := Gdip_ImageSearch(pBMScreen, bitmaps["colhey"], , , , , , 5)
+		out := Gdip_ImageSearch(pBMScreen, bitmaps["honey"], , , , , , 5) = 1 ||  Gdip_ImageSearch(pBMScreen, bitmaps["collect"], , , , , , 5) = 1
 		Gdip_DisposeImage(pBMScreen)
 		fail := out = 1 ? 0 : fail + 1
 		if fail > 3 {
@@ -574,7 +584,7 @@ class AltMacro {
 		return out
 	}
 
-	DetectSpawn() { ; some of the code was from hive check, repurposing it here since it seems to reliably detect hive slots even when the stuff is really bad
+	DetectSpawn() {
 		ActivateRoblox()
 		GetRobloxClientPos()
 		loop 5
@@ -611,7 +621,7 @@ class AltMacro {
 		if !GetRobloxClientPos()
 			return false
 
-		if Config.Get("Alt", "IgnoreInactiveHoney", 0)
+		if this.IgnoreInactiveHoney
 			return true
 
 		pBMScreen := Gdip_BitmapFromScreen(windowX + windowWidth // 2 - 90 "|" windowY + State.offsetY "|70|34")
@@ -637,5 +647,284 @@ class AltMacro {
 		}
 		Gdip_DisposeImage(pBMScreen)
 		return false
+	}
+
+
+	AfterJoinCommon() {
+		try ActivateRoblox()
+		try GetRobloxClientPos()
+		if (this.ClaimHiveEnabled)
+			try this.ClaimHive()
+		try this.Rotation()
+	}
+
+	GatherForSeconds(fieldName, seconds) {
+		start := A_TickCount
+		local inactiveHoney := 0
+		while (this.IsRunning && ((A_TickCount - start) < (seconds * 1000))) {
+			if !this.Shiftlock
+				MouseMove windowX + (windowWidth // 2), windowY + (windowHeight // 2)
+			if this.UseTool
+				Click "down"
+			this.Gather(this.Pattern, fieldName, 1)
+
+			if (this.IsDead() = true || this.Reconnect()) {
+				Click "up"
+				break
+			}
+			if (Mod((A_TickCount - start) // 1000, 10) = 0) {
+				if (!this.ActiveHoney()) {
+					if (++inactiveHoney >= 5) {
+						Click "up"
+						break
+					}
+				} else
+					inactiveHoney := 0
+			}
+			sleep 50
+		}
+		Click "up"
+	}
+
+	JoinPublicServer() {
+		try CloseRoblox()
+		try Run '"roblox://placeID=1537690962"'
+		return this.WaitForRobloxLoaded(420)
+	}
+
+	JoinPrivateServer(link) {
+		link := Trim(link)
+
+		linkCode := ""
+		if RegExMatch(link, "i)(?:privateServerLinkCode|linkCode|joinCode)=([^&]+)", &m) {
+			linkCode := m[1]
+		}
+
+		try CloseRoblox()
+
+		if (linkCode != "") {
+			try Run('roblox://placeID=1537690962&linkCode=' linkCode)
+		} else {
+			try Run(link)
+		}
+
+		return this.WaitForRobloxLoaded(420)
+	}
+
+	WaitForRobloxLoaded(timeoutSeconds := 420) {
+		Loop timeoutSeconds {
+			if (GetRobloxHWND()) {
+				ActivateRoblox()
+				break
+			}
+			if !this.IsRunning
+				return false
+			sleep 1000
+		}
+		if !GetRobloxHWND()
+			return false
+
+		Loop 240 { ; ignore this for now, used for testing gather
+			ActivateRoblox()
+			if !GetRobloxClientPos() {
+				sleep 500
+				continue
+			}
+			pBMScreen := Gdip_BitmapFromScreen(windowX "|" windowY + 30 "|" windowWidth "|" windowHeight - 30)
+			if (Gdip_ImageSearch(pBMScreen, bitmaps["disconnected"], , , , , , 2) = 1) {
+				Gdip_DisposeImage(pBMScreen)
+				return false
+			}
+			if ((Gdip_ImageSearch(pBMScreen, bitmaps["loading"], , , , , 150, 4) = 0)
+				|| (Gdip_ImageSearch(pBMScreen, bitmaps["science"], , , , , 150, 2) = 1)) {
+				Gdip_DisposeImage(pBMScreen)
+				return true
+			}
+			Gdip_DisposeImage(pBMScreen)
+			if !this.IsRunning
+				return false
+			sleep 1000
+		}
+		return false
+	}
+
+	WaitForGuidingStarAnnouncement(timeoutSeconds := 600) {
+		start := A_TickCount
+		while (this.IsRunning && ((A_TickCount - start) < (timeoutSeconds * 1000))) {
+			try ActivateRoblox()
+			try GetRobloxClientPos()
+			text := this.OcrTopAnnouncement()
+			if (text != "" && InStr(StrLower(text), "guiding") && InStr(StrLower(text), "star"))
+				return text
+			sleep 1000
+		}
+		return ""
+	}
+
+	OcrTopAnnouncement() {
+		hwnd := GetRobloxHWND()
+		if !hwnd
+			return ""
+		GetRobloxClientPos(hwnd)
+		offsetY := GetYOffset(hwnd)
+		if (windowWidth < 600 || windowHeight < 500)
+			return ""
+
+		x := windowX + (windowWidth // 2) - 500
+		y := windowY + offsetY + 40
+		w := 1000
+		h := 140
+		pBM := Gdip_BitmapFromScreen(x "|" y "|" w "|" h)
+		hBM := Gdip_CreateHBITMAPFromBitmap(pBM)
+		Gdip_DisposeImage(pBM)
+		pStream := HBitmapToRandomAccessStream(hBM)
+		DllCall("DeleteObject", "Ptr", hBM)
+		try out := ocr(pStream)
+		catch
+			out := ""
+		return Trim(out)
+	}
+
+	GuideCycle() {
+
+		target := this.NormalizeGuideField(Config.Get("Guide", "Field", "pepper"))
+		privLink := Trim(Config.Get("Guide", "PrivLink", ""))
+
+		; use the user's configured alt gather field/pattern
+		waitField := this.DefaultField
+		if (waitField = "")
+			waitField := "dandelion"
+
+		if (privLink = "")
+			return
+
+		while (this.IsRunning && Config.Get("Guide", "Enabled", 0)) {
+			if !this.JoinPublicServer()
+				continue
+
+			this.AfterJoinCommon()
+
+			this.GotoField(waitField)
+			this.PlaceSprinkler()
+			this.EnableShift(1)
+
+			this.GatherForSeconds(waitField, 240)
+
+			if !this.IsRunning
+				break
+
+			if !this.JoinPrivateServer(privLink)
+				continue
+
+			this.AfterJoinCommon()
+
+			this.GotoField(waitField)
+			this.PlaceSprinkler()
+			this.EnableShift(1)
+
+			start := A_TickCount
+			foundField := ""
+
+			while (this.IsRunning) {
+
+				this.Gather(this.Pattern, waitField, 1)
+
+				if this.GuidingDetected() {
+					foundField := this.DetectGuideField()
+					break
+				}
+
+				if ((A_TickCount - start) > 600000)
+					break
+			}
+
+			if (!this.IsRunning)
+				break
+
+			if (foundField = target) {
+
+				gotoKey := this.GuideFieldKeyToGoto(foundField)
+
+				if (gotoKey != "") {
+
+					this.GotoField(gotoKey)
+					this.PlaceSprinkler()
+					this.EnableShift(1)
+
+					this.GatherForSeconds(gotoKey, 600)
+				}
+			}
+		}
+	}
+
+	GuidingDetected() {
+
+		if !GetRobloxClientPos()
+			return false
+
+		pBM := Gdip_BitmapFromScreen(
+			windowX + (windowWidth // 2 - 450) "|"
+			windowY + 40 "|900|160"
+		)
+
+		found := (Gdip_ImageSearch(pBM, bitmaps["guiding"], , , , , , 20) > 0)
+
+		Gdip_DisposeImage(pBM)
+
+		return found
+	}
+
+	DetectGuideField() {
+
+		if !GetRobloxClientPos()
+			return ""
+
+		pBM := Gdip_BitmapFromScreen(
+			windowX + (windowWidth // 2 - 450) "|"
+			windowY + 40 "|900|160"
+		)
+
+		if (Gdip_ImageSearch(pBM, bitmaps["guide_pepper"], , , , , , 20) > 0)
+			field := "pepper"
+		else if (Gdip_ImageSearch(pBM, bitmaps["guide_spider"], , , , , , 20) > 0)
+			field := "spider"
+		else if (Gdip_ImageSearch(pBM, bitmaps["guide_rose"], , , , , , 20) > 0)
+			field := "rose"
+		else if (Gdip_ImageSearch(pBM, bitmaps["guide_pinetree"], , , , , , 20) > 0)
+			field := "pinetree"
+		else if (Gdip_ImageSearch(pBM, bitmaps["guide_bamboo"], , , , , , 20) > 0)
+			field := "bamboo"
+		else if (Gdip_ImageSearch(pBM, bitmaps["guide_bff"], , , , , , 20) > 0)
+			field := "bff"
+		else
+			field := ""
+
+		Gdip_DisposeImage(pBM)
+
+		return field
+	}
+
+	NormalizeGuideField(fieldVal) {
+		v := StrLower(Trim(fieldVal))
+		v := StrReplace(v, " ", "")
+		if (v = "pinetree" || v = "pinetreeforest" || v = "pinetree")
+			return "pinetree"
+		if (v = "blueflower" || v = "bff")
+			return "bff"
+		if (v = "pepper" || v = "spider" || v = "rose" || v = "bamboo")
+			return v
+		return "pepper"
+	}
+
+	GuideFieldKeyToGoto(key) {
+		switch key {
+			case "pepper": return "pepper"
+			case "spider": return "spider"
+			case "rose": return "rose"
+			case "pinetree": return "pinetree"
+			case "bamboo": return "bamboo"
+			case "bff": return "blueflower"
+			default: return "pepper"
+		}
 	}
 }

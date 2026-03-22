@@ -1,4 +1,4 @@
-gotoRamp()
+﻿gotoRamp()
 send "{" SC_Space " down}"
 HyperSleep(100)
 send "{" SC_Space " up}"

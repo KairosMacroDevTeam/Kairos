@@ -1,4 +1,4 @@
-class Conditions {
+﻿class Conditions {
 	BuffState := Map(
 		"Timer", 0
 		, "scorch", 0
@@ -142,7 +142,7 @@ class Conditions {
 
 	UpdateStreak(name, found, val) {
 		static Streak := Map("glitter", 0, "smoothie", 0)
-		static Thresholds := Map("glitter", 0.02, "smoothie", 0.02)
+		static Thresholds := Map("glitter", 0.03, "smoothie", 0.03)
 
 		if (found && val > 0 && val <= Thresholds[name]) {
 			Streak[name] += 1
@@ -249,7 +249,7 @@ class BoostBar {
 	}
 
 	CreateUI(*) {
-		this.Gui := Gui("-Caption +E0x80000 +AlwaysOnTop +ToolWindow +OwnDialogs", "Boost Bar")
+		this.Gui := Gui("-Caption +E0x80000 +E0x08000000 +AlwaysOnTop +ToolWindow +OwnDialogs", "Boost Bar")
 		(this.ConfigCache.enabled ? this.Gui.Show("NA") : this.Gui.Hide())
 
 		this.hbm := CreateDIBSection(this.TotalW, this.TotalH)
@@ -337,10 +337,6 @@ class BoostBar {
 						this.OpenModeMenu(A_Index)
 					} else {
 						try WinActivate("ahk_id " WinExist("Roblox ahk_exe RobloxPlayerBeta.exe"))
-						(GetKeyState("w")) ? (send("{w up}"), send("{w down}")) : ""
-						(GetKeyState("s")) ? (send("{s up}"), send("{s down}")) : ""
-						(GetKeyState("d")) ? (send("{d up}"), send("{d down}")) : ""
-						(GetKeyState("a")) ? (send("{a up}"), send("{a down}")) : ""
 						this.ToggleSlot(A_Index)
 					}
 				} else if (y > 18 && y < 34) {
@@ -435,7 +431,7 @@ class BoostBar {
 				wx := win.x, wy := win.y, ww := win.w, wh := win.h
 				targetX := wx + (ww // 2) - 261
 				targetY := wy + wh - 182
-				show := this.ConfigCache.enabled && ((!this.IsRunning || State.IsPaused) || this.ConfigCache.showWhenActive)
+				show := this.ConfigCache.enabled && (!this.IsRunning || State.IsPaused ||(this.IsRunning && this.ConfigCache.showWhenActive))
 				(show ? this.Gui.Show("NA x" targetX " y" targetY " w" this.TotalW " h" this.TotalH) : this.Gui.Hide())
 			} else {
 				this.Gui.Hide()
@@ -448,7 +444,7 @@ class BoostBar {
 		this.IsRunning ^= 1
 		this.IsEnabled := this.ConfigCache.enabled
 		this.IsActive := this.IsRunning && this.IsEnabled
-		this.stats.BuffState["Timer"] := this.IsActive ? 1 : 0
+		this.stats.BuffState["Timer"] := (this.IsActive && !Config.Get("Main", "AltMacroEnabled", 0)) ? 1 : 0
 		this.Draw()
 		if (this.IsEnabled) {
 			if (this.IsActive && !this.ConfigCache.showWhenActive) {

@@ -1,4 +1,4 @@
-class FrameCache {
+﻿class FrameCache {
 	static cache := Map()
 	static defaultTtl := 25
 

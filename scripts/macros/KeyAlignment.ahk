@@ -1,4 +1,4 @@
-class KeyAlignment {
+﻿class KeyAlignment {
 	IsRunning := false
 	IsActive := false
 	IsRebinding := false
@@ -13,6 +13,7 @@ class KeyAlignment {
 
 	__New() {
 		this.CurrentKey := Config.Get("KeyAlignment", "AlignmentKey", "e")
+		this.RebindHotkey := Config.Get("KeyAlignment", "RebindHotkey", "^+k")
 
 		this.Gui := Gui("-Caption +E0x80000 +E0x20 +AlwaysOnTop +ToolWindow +OwnDialogs", "Key Alignment")
 		win := WindowTracker.Get()
@@ -106,15 +107,28 @@ class KeyAlignment {
 		this.Draw("Rebinding...")
 		this.RegisterActionHotkey(false)
 
-		ih := InputHook("L1 T7", "{Escape}")
+		ih := InputHook("L1 T7", "{Escape}{Space}{Tab}{Enter}{Backspace}{Delete}{Insert}{Home}{End}{PgUp}{PgDn}{Up}{Down}{Left}{Right}")
+		capturedKey := ""
+		MouseCallback := (ThisHotkey) => (capturedKey := StrReplace(ThisHotkey, "$"), ih.Stop())
+		mouseKeys := ["LButton", "RButton", "MButton", "XButton1", "XButton2"]
+		for key in mouseKeys
+			Hotkey("$" key, MouseCallback, "On")
 		ih.Start()
 		ih.Wait()
 
-		if (ih.EndReason = "Max") {
+		for key in mouseKeys
+			Hotkey("$" key, "Off")
+		
+		if (capturedKey != "")
+			this.CurrentKey := capturedKey
+		else if (ih.EndReason = "Max")
 			this.CurrentKey := ih.Input
-			Config.Set("KeyAlignment", "AlignmentKey", this.CurrentKey)
-			Config.WriteIni()
-		}
+		else if (ih.EndReason = "EndKey")
+			if (ih.EndKey != "Escape")
+				this.CurrentKey := ih.EndKey
+
+		Config.Set("KeyAlignment", "AlignmentKey", this.CurrentKey)
+		Config.WriteIni()
 
 		this.IsRebinding := false
 		this.RegisterActionHotkey(true)
@@ -138,6 +152,18 @@ class KeyAlignment {
 		Gdip_TextToGraphics(this.G, DisplayText, Options, "Segoe UI")
 
 		UpdateLayeredWindow(this.Gui.Hwnd, this.hdc, , , this.Width, this.Height)
+	}
+
+	RefreshConfig() {
+		this.RegisterActionHotkey(false)
+		try Hotkey(this.RebindHotkey, "Off")
+		this.CurrentKey := Config.Get("KeyAlignment", "AlignmentKey", "e")
+		this.RebindHotkey := Config.Get("KeyAlignment", "RebindHotkey", "^+k")
+		try Hotkey(this.RebindHotkey, (*) => this.StartRebind(), "On")
+		if (this.IsActive)
+			this.RegisterActionHotkey(true)
+		this.Draw()
+
 	}
 
 	Cleanup() {

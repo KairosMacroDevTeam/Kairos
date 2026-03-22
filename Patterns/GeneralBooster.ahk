@@ -1,4 +1,4 @@
-nowUnix() => DateDiff(A_NowUTC, "19700101000000", "Seconds")
+﻿nowUnix() => DateDiff(A_NowUTC, "19700101000000", "Seconds")
 GetUnixFactor() => Floor(nowUnix() // 10)
 
 Padding := 4
@@ -99,23 +99,25 @@ Pattern(location) {
 	}
 
 	EnableShift(true)
-	loop 1 {
-		walk(5, FwdKey)
-		walk(1, RightKey)
-		walk(5, BackKey)
-		walk(1, RightKey)
-	}
-	loop 2 {
-		walk(5, FwdKey)
-		walk(1, LeftKey)
-		walk(5, BackKey)
-		walk(1, LeftKey)
-	}
-	loop 1 {
-		walk(5, FwdKey)
-		walk(1, RightKey)
-		walk(5, BackKey)
-		walk(1, RightKey)
+	loop reps {
+		loop 1 {
+			walk(5, FwdKey)
+			walk(1, RightKey)
+			walk(5, BackKey)
+			walk(1, RightKey)
+		}
+		loop 2 {
+			walk(5, FwdKey)
+			walk(1, LeftKey)
+			walk(5, BackKey)
+			walk(1, LeftKey)
+		}
+		loop 1 {
+			walk(5, FwdKey)
+			walk(1, RightKey)
+			walk(5, BackKey)
+			walk(1, RightKey)
+		}
 	}
 }
 

@@ -1,4 +1,4 @@
-gotoRamp()
+﻿gotoRamp()
 gotoCannon()
 send "{" RotRight " 4}{" SC_E " down}{" FwdKey " down}"
 HyperSleep(100)

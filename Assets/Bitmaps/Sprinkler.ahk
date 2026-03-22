@@ -1,2 +1,4 @@
-bitmaps["saturator"] := Gdip_BitmapFromBase64("iVBORw0KGgoAAAANSUhEUgAAAAsAAAANCAYAAAB/9ZQ7AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAZSURBVChTY2C88f8/sXhUMTIeVYzA//8DAD1Dlimzf8yLAAAAAElFTkSuQmCC")
-bitmaps["saturatorWS"] := Gdip_BitmapFromBase64("iVBORw0KGgoAAAANSUhEUgAAAAsAAAANCAIAAADwlwNsAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABWSURBVChTfY5RDsAgDEJx99+Z6zMujXYoXy2lQHsjmjzgQ3q+7QBEQ4HwAu/Ba0YPRelR1ppSzuDWdKpNSmJ6Hz3ybeuxmkGalL+UwaTApgEwKetZUgfv4wyvgpuHgQAAAABJRU5ErkJggg==")
+﻿bitmaps["saturator"] := Gdip_CreateBitmap(10, 13), pGraphics := Gdip_GraphicsFromImage(bitmaps["saturator"]), Gdip_GraphicsClear(pGraphics, 0xFF01D8FF), Gdip_DeleteGraphics(pGraphics)
+bitmaps["saturator_gold_night"] := Gdip_CreateBitmap(10, 13), pGraphics := Gdip_GraphicsFromImage(bitmaps["saturator_gold_night"]), Gdip_GraphicsClear(pGraphics, 0xFF259FFF), Gdip_DeleteGraphics(pGraphics)
+bitmaps["saturator_blue"] := Gdip_CreateBitmap(10, 13), pGraphics := Gdip_GraphicsFromImage(bitmaps["saturator_blue"]), Gdip_GraphicsClear(pGraphics, 0xFF37B3FF), Gdip_DeleteGraphics(pGraphics)
+bitmaps["saturator_blue_night"] := Gdip_CreateBitmap(10, 13), pGraphics := Gdip_GraphicsFromImage(bitmaps["saturator_blue_night"]), Gdip_GraphicsClear(pGraphics, 0xFF1090FF), Gdip_DeleteGraphics(pGraphics)

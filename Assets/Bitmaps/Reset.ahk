@@ -1,4 +1,4 @@
-; normal - looking at a brighter hive slot
+﻿; normal - looking at a brighter hive slot
 ; altUI - looking at a darker hive slot (alternative camera rotation)
 bitmaps["hive"] := Map()
 bitmaps["hive"]["day"] := Gdip_CreateBitmap(22, 4), G := Gdip_GraphicsFromImage(bitmaps["hive"]["day"]), Gdip_GraphicsClear(G, 0xFFd28f0c), Gdip_DeleteGraphics(G)
