@@ -243,6 +243,8 @@
 			this.Gui.Add("UpDown", "Range0-8", Config.Get("Alt", "RotationAmount", 0))
 			this.Gui.Add("DropDownList", "x" Group2 + 102 " y153 w60 vAlt_RotationDirection Choose" ObjIndexOf(["Right", "Left"], Config.Get("Alt", "RotationDirection", "Right")), ["Right", "Left"]).OnEvent("Change", this.SaveConfig.Bind(this))
 
+
+			/*
 			; --- Guide Tab ---
 			TabCtrl.UseTab("Guide")
 			this.Gui.SetFont("w700")
@@ -263,6 +265,7 @@
 
 			this.Gui.Add("Text", "x20 y105", "Private Server Link:")
 			this.Gui.Add("Edit", "x20 y125 w350 h20 vGuide_PrivLink", Config.Get("Guide", "PrivLink", "")).OnEvent("Change", this.SaveConfig.Bind(this))
+			*/
 		}
 
 		; --- Communicator Tab ---
