@@ -335,7 +335,7 @@
 	ClaimHive(ignoreCam := 0) {
 		State.offsetY := GetYOffset()
 		GetImg() {
-			pBMScreen := Gdip_BitmapFromScreen(windowX + (windowWidth // 2) - 200 "|" windowY + State.offsetY "|400|150")
+			pBMScreen := Gdip_BitmapFromScreen(windowX + (windowWidth // 2) - 200 "|" windowY + State.offsetY "|400|125")
 			while ((A_Index <= 20) && (Gdip_ImageSearch(pBMScreen, bitmaps["FriendJoin"][1], , , , , , 6) = 1 || Gdip_ImageSearch(pBMScreen, bitmaps["FriendJoin"][2], , , , , , 6) = 1)) {
 				Gdip_DisposeImage(pBMScreen)
 				MouseMove windowX + (windowWidth // 2) - 3, windowY + 24
@@ -346,13 +346,11 @@
 			}
 			return pBMScreen
 		}
-
 		ActivateRoblox()
 		GetRobloxClientPos()
 		MouseMove windowX + 350, windowY + State.offsetY + 100
 		if !ignoreCam
 			this.DetectSpawn()
-		
 		movement := this.spawnMoveTo(this.slotMove[this.HiveSlot])
 		RunPath(movement)
 		KeyWait "F14", "D T5 L"
@@ -368,92 +366,61 @@
 			send "{" SC_E " up}"
 			HiveConfirmed := 1
 			return 1
-		} else if this.atHive() {
-			HiveConfirmed := 1
-			return 1
 		}
 		Gdip_DisposeImage(pBMScreen)
 
-		Sleep 500
-		GetRobloxClientPos()
-		send "{" ZoomOut " 8}"
-		movement :=
-		(
-			'Send "{' RightKey ' down}"
-			move(4)
-			Send "{' FwdKey ' down}"
-			move(20)
-			Send "{' RightKey ' up}{' FwdKey ' up}"'
-		)
+		if this.atHive() {
+			HiveConfirmed := 1
+			return 1
+		}
+
+		PrevKeyDelay := A_KeyDelay
+		SetKeyDelay 300
+		send "{" SC_Esc "}{" SC_R "}{" SC_Enter "}"
+		n := 0
+		while ((n < 2) && (A_Index <= 50)) {
+			sleep 200
+			pBMScreen := Gdip_BitmapFromScreen(windowX "|" windowY "|" windowWidth "|50")
+			n += ((Gdip_ImageSearch(pBMScreen, bitmaps["emptyhealth"], , , , , , 10) || this.HealthBar()) = (n = 0))
+			Gdip_DisposeImage(pBMScreen)
+		}
+		sleep 500
+		SetKeyDelay PrevKeyDelay
+
+		if this.atHive() && this.verifyAtHive() {
+			HiveConfirmed := 1
+			return 1
+		}
+		this.DetectSpawn()
+
+		movement := this.spawnMoveTo(this.slotMove[1])
 		RunPath(movement)
 		KeyWait "F14", "D T5 L"
 		KeyWait "F14", "T120 L"
 		EndPath()
 
-		slots := Map()
-		move := walk(9.2, LeftKey)
-		foundHive := false
-
-		Loop this.HiveSlot {
+		moveLeft := walk(9.2, LeftKey)
+		loop 6 {
 			if (A_Index > 1) {
-				RunPath(move)
+				RunPath(moveLeft)
 				KeyWait "F14", "D T5 L"
 				KeyWait "F14", "T120 L"
 				EndPath()
 			}
-			sleep 300
+			sleep 500
 			pBMScreen := GetImg()
-			if (Gdip_ImageSearch(pBMScreen, bitmaps["claimhive"],,,,,,2,,6) = 1)
-				slots[A_Index] := 1
-			Gdip_DisposeImage(pBMScreen)
-			if (slots.Has(this.HiveSlot) && (slots[this.HiveSlot] = 1)) {
-				foundHive := true
-				break
-			} else {
-				if ((slot := ObjMinIndex(slots)) > 0) {
-					movement := walk((this.HiveSlot - slot) * 9.2, RightKey)
-					RunPath(movement)
-					KeyWait "F14", "D T5 L"
-					KeyWait "F14", "T120 L"
-					EndPath()
-
-					sleep 300
-					pBMScreen := GetImg()
-					if (Gdip_ImageSearch(pBMScreen, bitmaps["claimhive"],,,,,,2,,6) = 1) {
-						this.HiveSlot := slot
-						foundHive := true
-						break
-					}
-					Gdip_DisposeImage(pBMScreen)
-				} else {
-					loop (6 - this.HiveSlot) {
-						RunPath(move)
-						KeyWait "F14", "D T5 L"
-						KeyWait "F14", "T120 L"
-						EndPath()
-
-						sleep 300
-						pBMScreen := GetImg()
-						if (Gdip_ImageSearch(pBMScreen, bitmaps["claimhive"],,,,,,2,,6) = 1) {
-							this.HiveSlot := this.HiveSlot + A_Index
-							foundHive := true
-							break 2
-						}
-						Gdip_DisposeImage(pBMScreen)
-					}
-				}
+			if (Gdip_ImageSearch(pBMScreen, bitmaps["claimhive"],,,,,,2,,6) = 1 || this.atHive()) {
+				Gdip_DisposeImage(pBMScreen)
+				this.HiveSlot := A_Index
+				send "{" SC_E " down}"
+				sleep 100
+				send "{" SC_E " up}"
+				HiveConfirmed := 1
+				return 1
 			}
-			if (A_Index = 5)
-				return 0
+			Gdip_DisposeImage(pBMScreen)
 		}
-		if !foundHive
-			return 0
-
-		send "{" SC_E " down}"
-		sleep 100
-		send "{" SC_E " up}"
-		HiveConfirmed := 1
-		return 1
+		return 0
 	}
 
 	spawnMoveTo(moves) {
@@ -509,27 +476,8 @@
 						return
 					}
 				}
-				if (HiveDown)
-					sendinput "{" RotDown "}"
-				region := windowX "|" windowY + 3 * windowHeight // 4 "|" windowWidth "|" windowHeight // 4
-				sconf := windowWidth ** 2 // 3200
-
-				loop 4 {
-					sleep 250
-					pBMScreen := Gdip_BitmapFromScreen(region), s := 0
-					for i, k in bitmaps["hive"] {
-						s := Max(s, Gdip_ImageSearch(pBMScreen, k, , , , , , 5, , , sconf))
-						if (s >= sconf) {
-							Gdip_DisposeImage(pBMScreen)
-							HiveConfirmed := 1
-							sendinput "{" RotRight " 4}" (HiveDown ? ("{" RotUp "}") : "")
-							Send "{" ZoomOut " 5}"
-							return
-						}
-					}
-					Gdip_DisposeImage(pBMScreen)
-					sendinput "{" RotRight " 4}" ((A_Index = 2) ? ("{" ((HiveDown := !HiveDown) ? RotDown : RotUp) "}") : "")
-				}
+				if this.verifyAtHive()
+					return
 			}
 		}
 
@@ -562,18 +510,38 @@
 	}
 
 	atHive() {
-		static fail := 0
 		ActivateRoblox()
 		GetRobloxClientPos()
 		pBMScreen := Gdip_BitmapFromScreen(windowX + windowWidth // 2 - 200 "|" windowY + State.offsetY + 20 "|400|100")
 		out := Gdip_ImageSearch(pBMScreen, bitmaps["honey"], , , , , , 5) = 1 ||  Gdip_ImageSearch(pBMScreen, bitmaps["collect"], , , , , , 5) = 1
 		Gdip_DisposeImage(pBMScreen)
-		fail := out = 1 ? 0 : fail + 1
-		if fail > 3 {
-			fail := 0
-			return 1
+		return (out = 1)
+	}
+
+	verifyAtHive() {
+		static hiveDown := false
+		ActivateRoblox()
+		GetRobloxClientPos()
+		if (HiveDown)
+			send "{" RotDown "}"
+		region := windowX "|" windowY + 3 * windowHeight // 4 "|" windowWidth "|" windowHeight // 4
+		sconf := windowWidth ** 2 // 3200
+		loop 4 {
+			sleep 200
+			pBMScreen := Gdip_BitmapFromScreen(region), s := 0
+			for i, k in bitmaps["hive"] {
+				s := Max(s, Gdip_ImageSearch(pBMScreen, k, , , , , , 5, , , sconf))
+				if (s >= sconf) {
+					Gdip_DisposeImage(pBMScreen)
+					send "{" RotRight " 4}" (HiveDown ? ("{" RotUp "}") : "")
+					Send "{" ZoomOut " 5}"
+					return 1
+				}
+			}
+			Gdip_DisposeImage(pBMScreen)
+			send "{" RotRight " 4}" ((A_Index = 2) ? ("{" ((HiveDown := !HiveDown) ? RotDown : RotUp) "}") : "")
 		}
-		return out
+		return 0
 	}
 
 	DetectSpawn() {
