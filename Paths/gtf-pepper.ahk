@@ -1,4 +1,4 @@
-; hive
+﻿; hive
 gotoRamp()
 send "{" SC_Space " down}"
 HyperSleep(100)

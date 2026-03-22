@@ -1,4 +1,4 @@
-#Warn All, Off
+﻿#Warn All, Off
 
 locateCoco() {
 	static init := false

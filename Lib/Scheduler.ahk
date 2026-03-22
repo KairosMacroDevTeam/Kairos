@@ -1,4 +1,4 @@
-class Scheduler {
+﻿class Scheduler {
 	static tasks := Map()
 	static timerFn := 0
 	static interval := 0

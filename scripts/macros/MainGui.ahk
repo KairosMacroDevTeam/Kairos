@@ -1,15 +1,31 @@
-class MainGui {
+﻿class MainGui {
 	Selectors := Map()
 	Gui := unset
-	FeatureList := ["Warns", "Boost Bar", "Alt Macro", "Key Alignment", "Tracker", "Magnifier"]
+	FeatureList := ["Alt Macro", "Tracker", "Warns", "Boost Bar", "Stat Monitor", "Key Alignment", "Magnifier"]
 	FwdDown := false
 	BackDown := false
 	LeftDown := false
 	RightDown := false
 	ran := 0
+	ListeningKeybind := ""
+
 	__New() {
+		width := 500
+		height := 300
+
+		tabWidth := width
+		tabHeight := height
+
+		footerY := height - 23
+		footerButtonHeight := 22
+
+		tabInnerWidth := tabWidth - 20
+		
+		panelX := tabWidth + 5
+		panelWidth := width - panelX - 5
+
 		this.Gui := Gui((Config.Get("Main", "AlwaysOnTop", 0) ? "+AlwaysOnTop " : "") " +Border +OwnDialogs", "Kairos")
-		this.Gui.Show("x" Config.Get("Main", "GuiX", A_ScreenWidth // 2 - 200) " y" Config.Get("Main", "GuiY", A_ScreenHeight // 2 - 100) " w400 h220")
+		this.Gui.Show("x" Config.Get("Main", "GuiX", A_ScreenWidth // 2 - 200) " y" Config.Get("Main", "GuiY", A_ScreenHeight // 2 - 100) " w" width " h" height)
 		this.FeatureRefreshers := Map(
 			"BoostBarEnabled", () => (IsSet(Boost) && Boost) ? Boost.RefreshConfig() : 0,
 			"WarnsEnabled", () => (IsSet(Warns) && Warns) ? Warns.RefreshConfig() : 0,
@@ -18,53 +34,121 @@ class MainGui {
 
 		; General UI
 		this.Gui.OnEvent("Close", (*) => ExitApp())
-		this.Gui.SetFont("s8 cDefault Norm")
-		(GuiCtrl := this.Gui.Add("Text", "x400 y205 w90 -Wrap +BackgroundTrans", "v" version)), GuiCtrl.Move(396 - (TextWidth := this.TextExtend("v" version, GuiCtrl)))
-		this.Gui.Add("Button", "x5 y198 w65 h20 -Wrap vStartButton", "Start (" Config.Get("Main", "StartHotkey", "F1") ")").OnEvent("Click", this.start.Bind(this))
-		this.Gui.Add("Button", "x75 y198 w65 h20 -Wrap vPauseButton", "Pause (" Config.Get("Main", "PauseHotkey", "F2") ")").OnEvent("Click", this.pause.Bind(this))
-		this.Gui.Add("Button", "x145 y198 w65 h20 -Wrap vStopButton", "Stop (" Config.Get("Main", "StopHotkey", "F3") ")").OnEvent("Click", this.stop.Bind(this))
+		this.Gui.SetFont("s9 cDefault Norm")
+		
+		ver := "v" version
+		(GuiCtrl := this.Gui.Add("Text", "x" width - 5 " y" footerY + 3 " w90 -Wrap +BackgroundTrans", ver))
+		GuiCtrl.Move(width - 5 - this.TextExtend(ver, GuiCtrl))
 
-		TabArr := ["Main", "Alt", "Tracker", "Warnings", "Boost Bar", "Communicator", "Key Alignment"]
-		(TabCtrl := this.Gui.Add("Tab", "x0 y-1 w440 h240 -Wrap " (Config.Get("Main", "DarkMode", 1) ? "cFFFFFF" : "C000000"), TabArr)).OnEvent("Change", (*) => TabCtrl.Focus())
+		this.Gui.Add("Button", "x5 y" footerY " w67 h" footerButtonHeight " -Wrap vStartButton", "Start (" Config.Get("Main", "StartHotkey", "F1") ")").OnEvent("Click", this.start.Bind(this))
+		this.Gui.Add("Button", "x75 y" footerY " w67 h" footerButtonHeight " -Wrap vPauseButton", "Pause (" Config.Get("Main", "PauseHotkey", "F2") ")").OnEvent("Click", this.pause.Bind(this))
+		this.Gui.Add("Button", "x145 y" footerY " w67 h" footerButtonHeight " -Wrap vStopButton", "Stop (" Config.Get("Main", "StopHotkey", "F3") ")").OnEvent("Click", this.stop.Bind(this))
+
+
+		accountType := Config.Get("Main", "AccountType", "Main")
+		accountList := ["Main", "Alt"]
+		this.Gui.Add("Text", "x215 y" footerY+5 " -Wrap", "Account Type:")
+		this.Gui.Add("DropDownList", "x290 y" footerY+1 " w67 -Wrap vMain_AccountType Choose" ObjIndexOf(accountList, accountType), ["Main", "Alt"]).OnEvent("Change", this.SaveConfig.Bind(this))
+
+		; presets/profiles for settings
+		if (accountType = "Main")
+			TabArr := ["Home", "Tracker", "Warnings", "Boost Bar", "Communicator", "Settings"]
+		else
+			TabArr := ["Home", "Alt", "Boost Bar", "Communicator", "Settings"]
+		; TODO - Finish "Guide" for Alts
+		(TabCtrl := this.Gui.Add("Tab", "x-1 y-1 w" tabWidth+2 " h" footerY " -Wrap " (Config.Get("Main", "DarkMode", 1) ? "cFFFFFF" : "C000000"), TabArr)).OnEvent("Change", (*) => TabCtrl.Focus())
 		SendMessage 0x1331, 0, 20, , TabCtrl
+
 		; --- Main Tab ---
-		TabCtrl.UseTab("Main")
+		TabCtrl.UseTab("Home")
 		this.Gui.SetFont("w700")
-		this.Gui.Add("GroupBox", "x10 y20 w110 h145 -Wrap", "")
-		this.Gui.Add("Text", "x20 y22 w85 h20 -Wrap", "Main Features")
-		this.Gui.SetFont("s8 cDefault Norm")
+
+		this.Gui.Add("GroupBox", "x10 y25 w190 h115 -Wrap", "")
+		this.Gui.Add("Text", "x20 y24 h20 -Wrap", "Profile Manager")
+		this.Gui.SetFont("s10 cDefault Norm")
+
+		this.Gui.Add("Text", "x20 y45 w50", "Presets:")
+		presets := Config.GetPresets()
+		this.Gui.Add("DropDownList", "x70 y42 w120 vPresetDDL Choose" ObjIndexOf(presets, Config.currentPreset), presets)
+
+		this.Gui.Add("Button", "x20 y75 w50 h22", "Load").OnEvent("Click", this.LoadPreset.Bind(this))
+		this.Gui.Add("Button", "x75 y75 w50 h22", "Save").OnEvent("Click", this.SavePreset.Bind(this))
+		this.Gui.Add("Button", "x130 y75 w50 h22", "New").OnEvent("Click", this.NewPreset.Bind(this))
+		this.Gui.Add("Button", "x20 y105 w160 h22", "Delete").OnEvent("Click", this.DeletePreset.Bind(this))
+
+		this.Gui.SetFont("w700")
+		this.Gui.Add("GroupBox", "x210 y25 w130 h" 20 + ((Config.Get("Main", "AccountType", "Main") = "Main" ? 6 : 2) * 20) " -Wrap vFeaturesGroup", "")
+		this.Gui.Add("Text", "x220 y24 h20 -Wrap", "Enable Features")
+		this.Gui.SetFont("s10 cDefault Norm")
+
+		this.FeatureControls := Map()
 		for i in this.FeatureList {
 			name := StrReplace(i, " ", "") "Enabled"
 			isEnabled := Config.Get("Main", name, 0)
-			(GuiCtrl := this.Gui.Add("CheckBox", "x15 y" 40 + (20 * (A_Index - 1)) " w20 h20 -Wrap v" name " Checked" isEnabled, "")).Section := "Main", GuiCtrl.OnEvent("Click", this.ToggleFeature.Bind(this))
-			this.Gui.Add("Text", "x35 y" 43 + (20 * (A_Index - 1)) " w80 h20 -Wrap", i)
+
+			chk := this.Gui.Add("CheckBox", "x215 y" 40 + (20 * (A_Index - 1)) " w20 h20 -Wrap vMain_" name " Checked" isEnabled, "")
+			chk.Section := "Main"
+			chk.OnEvent("Click", this.ToggleFeature.Bind(this))
+			txt := this.Gui.Add("Text", "x235 y" 43 + (20 * (A_Index - 1)) " w90 h20 -Wrap", i)
+			this.FeatureControls[i] := {chk: chk, txt: txt, name: name}
 		}
 		; --- Warnings Tab ---
-		TabCtrl.UseTab("Warnings")
-		this.Gui.SetFont("w700")
-		this.Gui.Add("GroupBox", "x10 y20 w180 h140 -Wrap", "")
-		this.Gui.Add("Text", "x20 y22 w103 h20 -Wrap", "Precision Settings")
+		if (accountType = "Main") {
+			; actual name (in settings) - display name
+			WarnItems := [
+				["Precise", "Precision"]
+				, ["Smoothie", "Super Smoothie"]
+				, ["Gummy", "Gummy Star"]
+				, ["Pop", "Pop Star"]
+				, ["Scorch", "Scorching Star"]
+				, ["Shower", "Star Shower"]
+				, ["Morph", "Gummy Morph"]
+				, ["Baller", "Gummyballer"]
+				, ["Combo", "Coconut Combo"]
+			]
 
-		this.Gui.Add("Text", "x15 y45", "Threshold:")
-		this.Gui.Add("Edit", "x76 y42 w50 Number vWarns_StartWarn", Config.Get("Warns", "StartWarn", 25)).OnEvent("Change", this.SaveConfig.Bind(this))
-		this.Gui.Add("UpDown", "Range0-60", Config.Get("Warns", "StartWarn", 25))
-		this.Gui.Add("Text", "x+5 yp+3", "Seconds")
+			TabCtrl.UseTab("Warnings")
+			this.Gui.SetFont("w700")
+			this.Gui.Add("GroupBox", "x10 y25 w" (tabInnerWidth - 120) " h" 35 + (WarnItems.Length * 21) " -Wrap", "")
+			this.Gui.Add("Text", "x20 y27 -Wrap", "Warning Settings")
+			this.Gui.SetFont("s10 cDefault Norm")
 
-		this.Gui.Add("Text", "x15 y70", "Volume:")
-		this.Gui.Add("Edit", "x61 y68 w50 Number vWarns_Volume", Config.Get("Warns", "Volume", 25)).OnEvent("Change", this.SaveConfig.Bind(this))
-		this.Gui.Add("UpDown", "Range0-100", Config.Get("Warns", "Volume", 25))
-		this.Gui.Add("Text", "x+5 yp+3", "%")
+			this.Gui.Add("Text", "x45 y40 w80", "Active")
+			this.Gui.Add("Text", "x135 y40 w60", "Threshold")
+			this.Gui.Add("Text", "x225 y40 w70", "Audio/Misc")
 
-		this.Gui.Add("Text", "x15 y95", "Sound:")
-		this.Gui.Add("Button", "x+5 y92 w60 h20", "Browse").OnEvent("Click", this.SelectSound.Bind(this))
-		this.Gui.Add("Button", "xp+60 yp w60 h20 vWarns_ResetSoundFile", "Test").OnEvent("Click", this.TestAudio.Bind(this))
-		this.Gui.Add("Edit", "x15 y120 w170 h20 ReadOnly vWarns_SoundFile", Config.Get("Warns", "SoundFile", "C:\Windows\Media\Windows Critical Stop.wav"))
+			yPos := 57
+			for item in WarnItems {
+				key := item[1]
+				name := item[2]
 
+				unit := (name ~= "Precision|Smoothie" ? "s" : "x")
+				maxVal := Warns.WarnProfiles.Has(name) ? Warns.WarnProfiles[name].max . unit : "??"
+
+				this.Gui.Add("CheckBox", "x20 y" yPos " w20 h20 vWarns_" key "_Enabled Checked" Config.Get("Warns", key "_Enabled", 0)).OnEvent("Click", this.SaveConfig.Bind(this))
+				this.Gui.Add("Text", "x40 y" yPos + 3, name)
+
+				this.Gui.Add("Edit", "x140 y" yPos " w50 h20 Number vWarns_" key "_Threshold", Config.Get("Warns", key "_Threshold", 25)).OnEvent("Change", this.SaveConfig.Bind(this))
+
+				this.Gui.SetFont("cGray s7")
+				this.Gui.Add("Text", "x192 y" yPos + 3 " w35", "/" maxVal)
+				this.Gui.SetFont("s10 cDefault Norm")
+
+				btn := this.Gui.Add("Button", "x230 y" yPos " w60 h22", "Settings")
+				btn.OnEvent("Click", this.OpenWarnSettings.Bind(this, key, name))
+				yPos += 21
+			}
+		}
 		; --- Boost Bar Tab ---
 		TabCtrl.UseTab("Boost Bar")
-		this.Gui.Add("Text", "x20 y25 w40", "Active")
-		this.Gui.Add("Text", "x75 y25 w60", "Timer(s)")
-		this.Gui.Add("Text", "x130 y25 w80", "Mode(s)")
+		this.Gui.SetFont("w700")
+		this.Gui.Add("GroupBox", "x5 y25 w70 h165 -Wrap", "")
+		this.Gui.Add("GroupBox", "x75 y25 w70 h165 -Wrap", "")
+		this.Gui.Add("GroupBox", "x145 y25 w85 h165 -Wrap", "")
+		this.Gui.Add("Text", "x20 y25", "Active")
+		this.Gui.Add("Text", "x87 y25", "Timers")
+		this.Gui.Add("Text", "x165 y25", "Modes")
+		this.Gui.SetFont("s10 cDefault Norm")
 
 		loop 7 {
 			yPos := 45 + ((A_Index - 1) * 20)
@@ -72,153 +156,212 @@ class MainGui {
 
 			this.Gui.Add("Text", "x10 y" yPos " w36 h20 -Wrap", "Slot " i ":")
 			this.Gui.Add("CheckBox", "x50 y" yPos - 2 " w20 h20 vBoostBar_SlotActive" i " Checked" Config.Get("BoostBar", "SlotActive" i, 0)).OnEvent("Click", this.SaveConfig.Bind(this))
-			this.Gui.Add("Edit", "x75 y" yPos - 3 " w50 h20 Number vBoostBar_SlotTimer" i, Config.Get("BoostBar", "SlotTimer" i, 100)).OnEvent("Change", this.SaveConfig.Bind(this))
+			this.Gui.Add("Edit", "x85 y" yPos - 3 " w50 h20 Number vBoostBar_SlotTimer" i, Config.Get("BoostBar", "SlotTimer" i, 100)).OnEvent("Change", this.SaveConfig.Bind(this))
 
 			currentModes := Config.Get("BoostBar", "SlotMode" i, "Timer")
 			display := currentModes = "" ? "None" : (StrSplit(currentModes, "|").Length > 1 ? "Multiple" : currentModes)
 
-			btn := this.Gui.Add("Button", "x130 y" yPos - 3 " w70 h21 vBoostBar_Config" i, display)
+			btn := this.Gui.Add("Button", "x150 y" yPos - 3 " w70 h21 vBoostBar_Config" i, display)
 			btn.OnEvent("Click", this.OpenModeSelector.Bind(this, i, btn))
 		}
 
-		this.Gui.Add("Text", "x290 y25", "Show when active")
-		this.Gui.Add("CheckBox", "x270 y22 w20 h20 vBoostBar_ShowWhenActive Checked" Config.Get("BoostBar", "ShowWhenActive", 1)).OnEvent("Click", this.SaveConfig.Bind(this))
+		this.Gui.Add("Text", "x" tabWidth - 110 " y30", "Show when active")
+		this.Gui.Add("CheckBox", "x" tabWidth - 130 " y28 w20 h20 vBoostBar_ShowWhenActive Checked" Config.Get("BoostBar", "ShowWhenActive", 1)).OnEvent("Click", this.SaveConfig.Bind(this))
 
 		; --- Alt Tab ---
-		TabCtrl.UseTab("Alt")
-		this.Gui.SetFont("w700")
-		this.Gui.Add("GroupBox", "x10 y20 w185 h170")
-		this.Gui.Add("Text", "x20 y22", "Alt Settings")
-		this.Gui.SetFont("s8 cDefault Norm")
-		this.Gui.SetFont("s8 w400")
+		if (accountType = "Alt") {
+			TabCtrl.UseTab("Alt")
+			this.Gui.SetFont("w700")
+			GroupWidth := (tabInnerWidth // 2) - 5
+			this.Gui.Add("GroupBox", "x10 y25 w" GroupWidth " h190")
+			this.Gui.Add("Text", "x20 y27", "Alt Settings")
+			this.Gui.SetFont("s10 cDefault Norm")
+			this.Gui.SetFont("s10 w400")
 
-		this.Gui.Add("Text", "x20 y45", "MoveSpeed:")
-		this.Gui.Add("Edit", "x95 y42 w60 h20 vAlt_Movespeed", Config.Get("Alt", "Movespeed", 29)).OnEvent("Change", this.SaveConfig.Bind(this))
+			this.Gui.Add("Text", "x20 y48", "MoveSpeed:")
+			this.Gui.Add("Edit", "x105 y42 w60 h20 vAlt_Movespeed", Config.Get("Alt", "Movespeed", 29)).OnEvent("Change", this.SaveConfig.Bind(this))
 
-		this.Gui.Add("Text", "x20 y70", "Hive Slot:")
-		this.Gui.Add("Edit", "x95 y68 w60 h20 vAlt_HiveSlot", Config.Get("Alt", "HiveSlot", 1)).OnEvent("Change", this.SaveConfig.Bind(this))
+			this.Gui.Add("Text", "x20 y70", "Hive Slot:")
+			this.Gui.Add("Edit", "x105 y68 w60 h20 vAlt_HiveSlot", Config.Get("Alt", "HiveSlot", 1)).OnEvent("Change", this.SaveConfig.Bind(this))
 
-		this.Gui.Add("Text", "x20 y95", "Alt Number:")
-		this.Gui.Add("Edit", "x95 y92 w40 h20 Number vAlt_AltNumber", Config.Get("Alt", "AltNumber", 1)).OnEvent("Change", this.SaveConfig.Bind(this))
+			this.Gui.Add("Text", "x20 y95", "Alt Number:")
+			this.Gui.Add("Edit", "x105 y92 w40 h20 Number vAlt_AltNumber", Config.Get("Alt", "AltNumber", 1)).OnEvent("Change", this.SaveConfig.Bind(this))
 
-		this.Gui.Add("Text", "x40 y120", "Shift Lock")
-		this.Gui.Add("CheckBox", "x20 y117 w20 h20 vAlt_ShiftLock Checked" Config.Get("Alt", "ShiftLock", 0)).OnEvent("Click", this.SaveConfig.Bind(this))
+			this.Gui.Add("Text", "x40 y120", "Shift Lock")
+			this.Gui.Add("CheckBox", "x20 y117 w20 h20 vAlt_ShiftLock Checked" Config.Get("Alt", "ShiftLock", 0)).OnEvent("Click", this.SaveConfig.Bind(this))
 
-		this.Gui.Add("Text", "x120 y120", "Drift Comp")
-		this.Gui.Add("CheckBox", "x100 y117 w20 h20 vAlt_FieldDriftComp Checked" Config.Get("Alt", "FieldDriftComp", 1)).OnEvent("Click", this.SaveConfig.Bind(this))
+			this.Gui.Add("Text", "x130 y120", "Drift Comp")
+			this.Gui.Add("CheckBox", "x110 y117 w20 h20 vAlt_FieldDriftComp Checked" Config.Get("Alt", "FieldDriftComp", 1)).OnEvent("Click", this.SaveConfig.Bind(this))
 
-		this.Gui.Add("Text", "x40 y143", "Claim Hive")
-		this.Gui.Add("CheckBox", "x20 y140 w20 h20 vAlt_ClaimHive Checked" Config.Get("Alt", "ClaimHive", 1)).OnEvent("Click", this.SaveConfig.Bind(this))
+			this.Gui.Add("Text", "x40 y143", "Claim Hive")
+			this.Gui.Add("CheckBox", "x20 y140 w20 h20 vAlt_ClaimHive Checked" Config.Get("Alt", "ClaimHive", 1)).OnEvent("Click", this.SaveConfig.Bind(this))
 
-		this.Gui.Add("Text", "x120 y143", "Ignore Inactive")
-		this.Gui.Add("CheckBox", "x100 y140 w20 h20 vAlt_IgnoreInactiveHoney Checked" Config.Get("Alt", "IgnoreInactiveHoney", 0)).OnEvent("Click", this.SaveConfig.Bind(this))
+			this.Gui.Add("Text", "x130 y143", "Ignore Inactive")
+			this.Gui.Add("CheckBox", "x110 y140 w20 h20 vAlt_IgnoreInactiveHoney Checked" Config.Get("Alt", "IgnoreInactiveHoney", 0)).OnEvent("Click", this.SaveConfig.Bind(this))
 
-		this.Gui.Add("Text", "x20 y165", "Priv Server:")
-		this.Gui.Add("Edit", "x80 y163 w110 h20 vAlt_PrivServer", Config.Get("Alt", "PrivServer", "")).OnEvent("Change", this.SaveConfig.Bind(this))
+			this.Gui.Add("Text", "x40 y165", "Use Tool")
+			this.Gui.Add("CheckBox", "x20 y162 w20 h20 vAlt_UseTool Checked" Config.Get("Alt", "UseTool", 0)).OnEvent("Click", this.SaveConfig.Bind(this))
+
+			this.Gui.Add("Text", "x20 y185", "Priv Server:")
+			this.Gui.Add("Edit", "x95 y183 w110 h20 vAlt_PrivServer", Config.Get("Alt", "PrivServer", "")).OnEvent("Change", this.SaveConfig.Bind(this))
 
 
+			Group2 := GroupWidth + 15
+			this.Gui.SetFont("w700")
+			this.Gui.Add("GroupBox", "x" Group2 " y25 w" GroupWidth " h190")
+			this.Gui.Add("Text", "x" Group2 + 10 " y27", "Field Settings")
 
-		this.Gui.SetFont("w700")
-		this.Gui.Add("GroupBox", "x205 y20 w185 h170")
-		this.Gui.Add("Text", "x215 y22", "Field Settings")
+			this.Gui.SetFont("s10 w400")
+			this.Gui.Add("Button", "x" Group2 + 110 " y27 w50 h18", "Copy").OnEvent("Click", this.CopyFieldSettings.Bind(this))
+			this.Gui.Add("Button", "x" Group2 + 160 " y27 w50 h18", "Paste").OnEvent("Click", this.PasteFieldSettings.Bind(this))
 
-		this.Gui.SetFont("s8 w400")
-		this.Gui.Add("Button", "x300 y22 w40 h16", "Copy").OnEvent("Click", this.CopyFieldSettings.Bind(this))
-		this.Gui.Add("Button", "x345 y22 w40 h16", "Paste").OnEvent("Click", this.PasteFieldSettings.Bind(this))
+			this.Gui.SetFont("s10 cDefault Norm")
 
-		this.Gui.SetFont("s8 cDefault Norm")
+			this.Gui.Add("Text", "x" Group2 + 5 " y50", "Field:")
+			fieldArr := ["sunflower", "dandelion", "mushroom", "blueflower", "clover", "strawberry", "spider", "bamboo", "pineapple", "stump", "cactus", "pumpkin", "pinetree", "rose", "mountaintop", "pepper", "coconut"]
+			(GuiCtrl := this.Gui.Add("DropDownList", "x" Group2 + 45 " y48 w100 vAlt_DefaultField Choose" ObjIndexOf(fieldArr, Config.Get("Alt", "DefaultField", "pepper")), fieldArr)).OnEvent("Change", this.SaveConfig.Bind(this))
 
-		this.Gui.Add("Text", "x215 y45", "Field:")
-		fieldArr := ["sunflower", "dandelion", "mushroom", "blueflower", "clover", "strawberry", "spider", "bamboo", "pineapple", "stump", "cactus", "pumpkin", "pinetree", "rose", "mountaintop", "pepper", "coconut"]
-		(GuiCtrl := this.Gui.Add("DropDownList", "x255 y42 w100 vAlt_DefaultField Choose" ObjIndexOf(fieldArr, Config.Get("Alt", "DefaultField", "pepper")), fieldArr)).OnEvent("Change", this.SaveConfig.Bind(this))
+			this.Gui.Add("Text", "x" Group2 + 5 " y75", "Pattern:")
+			this.Gui.Add("DropDownList", "x" Group2 + 60 " y75 w110 vAlt_Pattern Choose" ObjIndexOf(patternList, Config.Get("Alt", "Pattern", "GeneralBooster")), patternList).OnEvent("Change", this.SaveConfig.Bind(this))
 
-		this.Gui.Add("Text", "x215 y70", "Pattern:")
-		this.Gui.Add("DropDownList", "x270 y68 w110 vAlt_Pattern Choose" ObjIndexOf(patternList, Config.Get("Alt", "Pattern", "GeneralBooster")), patternList).OnEvent("Change", this.SaveConfig.Bind(this))
+			this.Gui.Add("Text", "x" Group2 + 5 " y105", "Size:")
+			this.Gui.Add("Edit", "x" Group2 + 40 " y103 w40 h20 Number vAlt_PatternSize", Config.Get("Alt", "PatternSize"))
+			this.Gui.Add("UpDown", "Range1-10", Config.Get("Alt", "PatternSize"))
 
-		this.Gui.Add("Text", "x215 y95", "Size:")
-		this.Gui.Add("Edit", "x240 y92 w40 h20 Number vAlt_PatternSize", Config.Get("Alt", "PatternSize"))
-		this.Gui.Add("UpDown", "Range1-10", Config.Get("Alt", "PatternSize"))
+			this.Gui.Add("Text", "x" Group2 + 90 " y105", "Width:")
+			this.Gui.Add("Edit", "x" Group2 + 130 " y103 w40 h20 Number vAlt_PatternWidth", Config.Get("Alt", "PatternWidth"))
+			this.Gui.Add("UpDown", "Range1-10", Config.Get("Alt", "PatternWidth"))
 
-		this.Gui.Add("Text", "x285 y95", "Width:")
-		this.Gui.Add("Edit", "x320 y92 w40 h20 Number vAlt_PatternWidth", Config.Get("Alt", "PatternWidth"))
-		this.Gui.Add("UpDown", "Range1-10", Config.Get("Alt", "PatternWidth"))
+			this.Gui.Add("Text", "x" Group2 + 5 " y130", "Sprinkler:")
+			sprinklerArr := ["Center", "Upper Left", "Left", "Lower Left", "Lower", "Lower Right", "Right", "Upper Right", "Upper"]
+			this.Gui.Add("DropDownList", "x" Group2 + 65 " y125 w80 vAlt_SprinklerLocation Choose" ObjIndexOf(sprinklerArr, Config.Get("Alt", "SprinklerLocation", "Center")), sprinklerArr).OnEvent("Change", this.SaveConfig.Bind(this))
+			this.Gui.Add("Edit", "x" Group2 + 147 " y125 w40 h24 Number vAlt_SprinklerDistance", Config.Get("Alt", "SprinklerDistance", 1)).OnEvent("Change", this.SaveConfig.Bind(this))
+			this.Gui.Add("UpDown", "Range0-10", Config.Get("Alt", "SprinklerDistance", 1))
 
-		this.Gui.Add("Text", "x215 y123", "Sprinkler:")
-		sprinklerArr := ["Center", "Upper Left", "Left", "Lower Left", "Lower", "Lower Right", "Right", "Upper Right", "Upper"]
-		this.Gui.Add("DropDownList", "x265 y120 w80 vAlt_SprinklerLocation Choose" ObjIndexOf(sprinklerArr, Config.Get("Alt", "SprinklerLocation", "Center")), sprinklerArr).OnEvent("Change", this.SaveConfig.Bind(this))
-		this.Gui.Add("Edit", "x350 y120 w30 h20 Number vAlt_SprinklerDistance", Config.Get("Alt", "SprinklerDistance", 1)).OnEvent("Change", this.SaveConfig.Bind(this))
-		this.Gui.Add("UpDown", "Range0-10", Config.Get("Alt", "SprinklerDistance", 1))
+			this.Gui.Add("Text", "x" Group2 + 5 " y155", "Rotation:")
+			this.Gui.Add("Edit", "x" Group2 + 60 " y153 w40 Number vAlt_RotationAmount", Config.Get("Alt", "RotationAmount", 0)).OnEvent("Change", this.SaveConfig.Bind(this))
+			this.Gui.Add("UpDown", "Range0-8", Config.Get("Alt", "RotationAmount", 0))
+			this.Gui.Add("DropDownList", "x" Group2 + 102 " y153 w60 vAlt_RotationDirection Choose" ObjIndexOf(["Right", "Left"], Config.Get("Alt", "RotationDirection", "Right")), ["Right", "Left"]).OnEvent("Change", this.SaveConfig.Bind(this))
 
-		this.Gui.Add("Text", "x215 y150", "Rotation:")
-		this.Gui.Add("Edit", "x260 y148 w40 h20 Number vAlt_RotationAmount", Config.Get("Alt", "RotationAmount", 0)).OnEvent("Change", this.SaveConfig.Bind(this))
-		this.Gui.Add("UpDown", "Range0-8", Config.Get("Alt", "RotationAmount", 0))
-		this.Gui.Add("DropDownList", "x320 y148 w60 vAlt_RotationDirection Choose" ObjIndexOf(["Right", "Left"], Config.Get("Alt", "RotationDirection", "Right")), ["Right", "Left"]).OnEvent("Change", this.SaveConfig.Bind(this))
+			; --- Guide Tab ---
+			TabCtrl.UseTab("Guide")
+			this.Gui.SetFont("w700")
+			this.Gui.Add("GroupBox", "x10 y20 w380 h170")
+			this.Gui.Add("Text", "x20 y27", "Guiding Star Cycle")
+			this.Gui.SetFont("s10 cDefault Norm")
+
+			this.Gui.Add("Text", "x20 y48", "Enable:")
+			this.Gui.Add("CheckBox", "x70 y47 w20 h20 vGuide_Enabled Checked" Config.Get("Guide", "Enabled", 0)).OnEvent("Click", this.SaveConfig.Bind(this))
+
+			this.Gui.Add("Text", "x20 y75", "Target Field:")
+			fieldMap := Map("pepper", 1, "spider", 2, "rose", 3, "pinetree", 4, "bff", 5, "bamboo", 6)
+			cur := StrLower(StrReplace(Config.Get("Guide", "Field", "pepper"), " ", ""))
+			a := ObjIndexOf(fieldArr, cur)
+			idx := a ? a : 1
+			ddl := this.Gui.Add("DropDownList", "x100 y72 w120 vGuide_Field Choose" idx, fieldArr)
+			ddl.OnEvent("Change", this.SaveConfig.Bind(this))
+
+			this.Gui.Add("Text", "x20 y105", "Private Server Link:")
+			this.Gui.Add("Edit", "x20 y125 w350 h20 vGuide_PrivLink", Config.Get("Guide", "PrivLink", "")).OnEvent("Change", this.SaveConfig.Bind(this))
+		}
 
 		; --- Communicator Tab ---
 		TabCtrl.UseTab("Communicator")
 		this.Gui.SetFont("w700")
-		this.Gui.Add("GroupBox", "x10 y20 w380 h150")
-		this.Gui.Add("Text", "x20 y21", "Connection Settings")
-		this.Gui.SetFont("s8 cDefault Norm")
-
-		this.Gui.Add("Text", "x45 y40", "Enable Communication")
-		this.Gui.Add("CheckBox", "x25 y37 w20 h20 vCommunicator_CommunicationEnabled Checked" Config.Get("Communicator", "CommunicationEnabled", 0)).OnEvent("Click", this.SaveConfig.Bind(this))
-
-		this.Gui.Add("Text", "x25 y60 w350 h30", "Both the Main and Alt must have the EXACT same 'Channel' name for this to work.")
-		this.Gui.Add("Text", "x25 y93", "Channel Name:")
-		(GuiCtrl := this.Gui.Add("Edit", "x110 y90 w180 h20 vCommunicator_DweetName", Config.Get("Communicator", "DweetName", "you might wanna change this..."))).OnEvent("Change", this.SaveConfig.Bind(this))
-		this.Gui.Add("Button", "x300 y90 w80 h20", "Generate").OnEvent("Click", this.GenerateUser.Bind(this))
-		this.Gui.Add("Text", "x25 y130 w80", "Status:")
+		this.Gui.Add("GroupBox", "x10 y25 w" TabInnerWidth " h110")
 		role := Config.Get("Main", "AltMacroEnabled", 0) ? "Client" : "Server"
-		this.Gui.Add("Text", "x60 y130 w200 vCommsStatus", role)
+		this.Gui.Add("Text", "x20 y27 vCommsStatus", "Connection Settings - Status: " role " ")
+		this.Gui.SetFont("s10 cDefault Norm")
+
+		this.Gui.Add("Text", "x45 y45", "Enable Communication")
+		this.Gui.Add("CheckBox", "x25 y42 w20 h20 vCommunicator_CommunicationEnabled Checked" Config.Get("Communicator", "CommunicationEnabled", 0)).OnEvent("Click", this.SaveConfig.Bind(this))
+
+		this.Gui.Add("Text", "x25 y67", "Channel Name:")
+		(GuiCtrl := this.Gui.Add("Edit", "x120 y65 w180 h20 vCommunicator_DweetName", Config.Get("Communicator", "DweetName", "you might wanna change this..."))).OnEvent("Change", this.SaveConfig.Bind(this))
+		this.Gui.Add("Button", "x120 y90 w60 h20", "Copy").OnEvent("Click", (*) => A_Clipboard := this.Gui["Communicator_DweetName"].Value)
+		this.Gui.Add("Button", "x180 y90 w60 h20", "Paste").OnEvent("Click", this.PasteUser.Bind(this))
+		this.Gui.Add("Button", "x240 y90 w65 h20", "Generate").OnEvent("Click", this.GenerateUser.Bind(this))
+
+		this.Gui.Add("Text", "x22 y110 w460", "For communication, both macros must have the EXACT same 'Channel' name.")
 
 		; --- Tracker Tab ---
-		TabCtrl.UseTab("Tracker")
+		if (accountType = "Main") {
+			TabCtrl.UseTab("Tracker")
+			TrackerItems := [
+				["precise", "Precision"]
+				, ["supersmoothie", "Super Smoothie"]
+				, ["combo", "Coconut Combo"]
+				, ["scorch", "Scorch"]
+				, ["x-flame", "X-Flame"]
+				, ["gummystar", "Gummy Star"]
+				, ["gummymorph", "Gummy Morph"]
+				, ["gummyballer", "Gummy Baller"]
+				, ["popstar", "Pop Star"]
+			]
+			this.Gui.SetFont("w700")
+			this.Gui.Add("GroupBox", "x10 y25 w140 h" 25 + (TrackerItems.Length * 20))
+			this.Gui.Add("Text", "x20 y27", "Tracker Settings")
+			this.Gui.SetFont("s10 cDefault Norm")
+
+			passives := Config.Get("Tracker", "Passives", "Scorch")
+			has := (str) => InStr("|" passives "|", "|" str "|")
+
+			yPos := 45
+			for item in TrackerItems {
+				key := item[1]
+				name := item[2]
+
+				varName := StrReplace(key, "-", "")
+				this.Gui.Add("CheckBox", "x25 y" yPos " w20 h20 vTracker_" varName " Checked" has(key)).OnEvent("Click", this.UpdatePassives.Bind(this))
+				this.Gui.Add("Text", "x45 y" yPos + 3, name)
+				yPos := yPos + 20
+			}
+		}
+
+		; --- Settings Tab ---
+		TabCtrl.UseTab("Settings")
 		this.Gui.SetFont("w700")
-		this.Gui.Add("GroupBox", "x10 y20 w130 h160")
-		this.Gui.Add("Text", "x20 y22", "Tracker Settings")
-		this.Gui.SetFont("s8 cDefault Norm")
+		this.Gui.Add("GroupBox", "x10 y25 w230 h165")
+		this.Gui.Add("Text", "x20 y27", "Keybind Settings")
+		this.Gui.SetFont("s10 cDefault Norm")
+		col := Config.Get("Main", "DarkMode", 1) ? "cFFB347" : "c0055A4"
 
-		passives := Config.Get("Tracker", "Passives", "Scorch")
-		has := (str) => InStr("|" passives "|", "|" str "|")
+		this.Gui.Add("Text", "x20 y53 w90", "Start Macro :")
+		dispStart := this.Gui.Add("Text", "x110 y53 w60 " col, Config.Get("Main", "StartHotkey", "F1"))
+		btnStart := this.Gui.Add("Button", "x170 y49 w60", "Rebind")
+		btnStart.OnEvent("Click", this.CaptureHotkey.Bind(this, "Main", "StartHotkey", dispStart))
 
+		this.Gui.Add("Text", "x20 y80 w90", "Pause Macro :")
+		dispPause := this.Gui.Add("Text", "x110 y80 w60 " col, Config.Get("Main", "PauseHotkey", "F2"))
+		btnPause := this.Gui.Add("Button", "x170 y76 w60", "Rebind")
+		btnPause.OnEvent("Click", this.CaptureHotkey.Bind(this, "Main", "PauseHotkey", dispPause))
 
-		this.Gui.Add("CheckBox", "x25 y42 w20 h20 vTracker_Scorch Checked" has("scorch")).OnEvent("Click", this.UpdatePassives.Bind(this))
-		this.Gui.Add("Text", "x45 y45", "Scorch")
+		this.Gui.Add("Text", "x20 y107 w90", "Stop Macro :")
+		dispStop := this.Gui.Add("Text", "x110 y107 w60 " col, Config.Get("Main", "StopHotkey", "F3"))
+		btnStop := this.Gui.Add("Button", "x170 y103 w60", "Rebind")
+		btnStop.OnEvent("Click", this.CaptureHotkey.Bind(this, "Main", "StopHotkey", dispStop))
 
-		this.Gui.Add("CheckBox", "x25 y62 w20 h20 vTracker_PopStar Checked" has("popstar")).OnEvent("Click", this.UpdatePassives.Bind(this))
-		this.Gui.Add("Text", "x45 y65", "Pop Star")
+		this.Gui.Add("Text", "x20 y134 w90", "Align Key :")
+		dispAlign := this.Gui.Add("Text", "x110 y134 w60 " col, Config.Get("KeyAlignment", "AlignmentKey", "e"))
+		btnAlign := this.Gui.Add("Button", "x170 y130 w60", "Rebind")
+		btnAlign.OnEvent("Click", this.CaptureHotkey.Bind(this, "KeyAlignment", "AlignmentKey", dispAlign))
 
-		this.Gui.Add("CheckBox", "x25 y82 w20 h20 vTracker_XFlame Checked" has("x-flame")).OnEvent("Click", this.UpdatePassives.Bind(this))
-		this.Gui.Add("Text", "x45 y85", "X-Flame")
+		this.Gui.Add("Text", "x20 y161 w90", "Rebind Align :")
+		dispRebind := this.Gui.Add("Text", "x110 y161 w60 " col, Config.Get("KeyAlignment", "RebindHotkey", "^+k"))
+		btnRebind := this.Gui.Add("Button", "x170 y157 w60", "Rebind")
+		btnRebind.OnEvent("Click", this.CaptureHotkey.Bind(this, "KeyAlignment", "RebindHotkey", dispRebind))
 
-		this.Gui.Add("CheckBox", "x25 y102 w20 h20 vTracker_GummyStar Checked" has("gummystar")).OnEvent("Click", this.UpdatePassives.Bind(this))
-		this.Gui.Add("Text", "x45 y105", "Gummy Star")
-
-		this.Gui.Add("CheckBox", "x25 y122 w20 h20 vTracker_GummyMorph Checked" has("gummymorph")).OnEvent("Click", this.UpdatePassives.Bind(this))
-		this.Gui.Add("Text", "x45 y125", "Gummy Morph")
-
-		this.Gui.Add("CheckBox", "x25 y142 w20 h20 vTracker_GummyBaller Checked" has("gummyballer")).OnEvent("Click", this.UpdatePassives.Bind(this))
-		this.Gui.Add("Text", "x45 y145", "Gummy Baller")
-
-		; --- Key Alignment Tab ---
-		TabCtrl.UseTab("Key Alignment")
-		this.Gui.SetFont("w700")
-		this.Gui.Add("GroupBox", "x10 y20 w380 h150")
-		this.Gui.Add("Text", "x20 y21", "Key Alignment Settings")
-		this.Gui.SetFont("s8 cDefault Norm")
-
-		this.Gui.Add("Text", "x25 y45", "Alignment Key:")
-		this.Gui.Add("Edit", "x100 y45 w100 vKeyAlignment_AlignmentKey", Config.Get("KeyAlignment", "AlignmentKey", "e")).OnEvent("Change", this.SaveConfig.Bind(this))
-		this.Gui.Add("Text", "x25 y75", "Rebind Hotkey:")
-		this.Gui.Add("Edit", "x100 y75 w100 vKeyAlignment_RebindHotkey", Config.Get("KeyAlignment", "RebindHotkey", "^+k")).OnEvent("Change", this.SaveConfig.Bind(this))
-
-		; --- Dark Mode ---
+		; --- Dark Mode & Other Stuff ---
+		this.UpdateUI()
 		SetWindowTheme(this.Gui, Config.Get("Main", "DarkMode", 1))
 		SetWindowAttribute(this.Gui, Config.Get("Main", "DarkMode", 1))
 		this.RegisterHotkeys()
+
+		; --- OnExit ---
+		;OnExit((*) => (IsSet(Stats) && Stats) ? Stats.Export() : 0)
 	}
 
+	; --- Functions ---
 	GenerateUser(GuiCtrl, *) {
 		name := "K" Random(10000000, 99999999) "X" Random(10000000, 99999999)
 		this.Gui["Communicator_DweetName"].Value := name
@@ -226,6 +369,86 @@ class MainGui {
 		Config.WriteIni()
 		if IsSet(Comms)
 			Comms.UpdateSettings()
+	}
+
+	PasteUser(GuiCtrl, *) {
+		try {
+			data := Trim(A_Clipboard)
+			if (data = "") {
+				ToolTip("Clipboard is empty.")
+				SetTimer(ToolTip, -500)
+				return
+			}
+			this.Gui["Communicator_DweetName"].Value := data
+			Config.Set("Communicator", "DweetName", data)
+			Config.WriteIni()
+
+			if IsSet(Comms)
+				Comms.UpdateSettings()
+		} catch {
+			ToolTip("Error Pasting.")
+			SetTimer(ToolTip, -500)
+		}
+	}
+	
+	CaptureHotkey(Section, KeyName, DisplayCtrl, GuiCtrl, *) {
+		originalText := DisplayCtrl.Value
+		DisplayCtrl.Value := "Listening..."
+		GuiCtrl.Enabled := false
+
+		ih := InputHook("L1 T7", "{Escape}{Space}{Tab}{Enter}{Backspace}{Delete}{Insert}{Home}{End}{PgUp}{PgDn}{Up}{Down}{Left}{Right}{F1}{F2}{F3}{F4}{F5}{F6}{F7}{F8}{F9}{F10}{F11}{F12}")
+
+		capturedKey := ""
+		MouseCallback := (ThisHotkey) => (capturedKey := StrReplace(ThisHotkey, "$"), ih.Stop())
+		mouseKeys := ["LButton", "RButton", "MButton", "XButton1", "XButton2"]
+		for key in mouseKeys
+			Hotkey("$" key, MouseCallback, "On")
+
+		ih.Start()
+		ih.Wait()
+
+		for key in mouseKeys
+			Hotkey("$" key, "Off")
+		GuiCtrl.Enabled := true
+		
+		finalKey := ""
+		if (capturedKey != "")
+			finalKey := capturedKey
+		else if (ih.EndReason = "Max")
+			finalKey := ih.Input
+		else if (ih.EndReason = "EndKey")
+			if (ih.EndKey != "Escape")
+				finalKey := ih.EndKey
+
+		if (finalKey != "") {
+			if (KeyName ~= "StartHotkey|PauseHotkey|StopHotkey") {
+				blacklist := "|LButton|RButton|Enter|Space|Tab|Backspace|Escape|"
+				if InStr(blacklist, "|" finalKey "|") {
+					MsgBox("You cannot bind '" finalKey "' to this option.", "Invalid Keybind", 48 " T10")
+					finalKey := ""
+				}
+			}
+		}
+		if (finalKey = "") {
+			DisplayCtrl.Value := originalText
+		} else {
+			DisplayCtrl.Value := finalKey
+			Config.Set(Section, KeyName, finalKey)
+			Config.WriteIni()
+			if (Section = "KeyAlignment" && IsSet(Aligner) && Aligner)
+				Aligner.RefreshConfig()
+
+			if (KeyName ~= "StartHotkey|PauseHotkey|StopHotkey") {
+				try Hotkey(originalText, "Off")
+				this.RegisterHotkeys()
+				if (KeyName = "StartHotkey")
+					this.Gui["StartButton"].Text := "Start (" finalKey ")"
+				else if (KeyName = "PauseButton")
+					this.Gui["PauseButton"].Text := "PauseButton (" finalKey ")"
+				else if (KeyName = "StopHotkey")
+					this.Gui["StopHotkey"].Text := "Stop (" finalKey ")"
+			}
+		}
 	}
 
 	OpenModeSelector(index, GuiCtrl*) {
@@ -238,7 +461,7 @@ class MainGui {
 		currentConfig := Config.Get("BoostBar", "SlotMode" index, "Timer")
 
 		ModeGui := Gui("+Owner" this.Gui.Hwnd " +AlwaysOnTop +Border +ToolWindow", "Slot " index)
-		ModeGui.SetFont("s8 cDefault Norm", "Tahoma")
+		ModeGui.SetFont("s10 cDefault Norm", "Bahnschrift")
 		ModeGui.OnEvent("Close", (*) => GuiClose)
 
 		UpdateConfig(*) {
@@ -258,6 +481,7 @@ class MainGui {
 			this.Gui["BoostBar_Config" index].Text := (count = 0) ? "None" : (count > 1 ? "Multiple" : saveString)
 
 			if IsSet(Boost) && Boost
+				Boost.RefreshConfig()
 				Boost.Draw()
 		}
 
@@ -290,7 +514,7 @@ class MainGui {
 	}
 
 	UpdatePassives(GuiCtrl, *) {
-		current := Config.Get("Tracker", "Passives", "Scorch")
+		current := Config.Get("Tracker", "Passives", "scorch")
 		list := StrSplit(current, "|")
 
 		name := StrLower(StrReplace(GuiCtrl.Name, "Tracker_", ""))
@@ -314,6 +538,63 @@ class MainGui {
 		Config.Set("Tracker", "Passives", saveStr)
 		Config.WriteIni()
 		this.RefreshFeature("TrackerEnabled")
+	}
+
+	OpenWarnSettings(warnKey, name, *) {
+		static WarnGui := ""
+		GuiClose(*) {
+			if (IsSet(WarnGui) && IsObject(WarnGui))
+				try WarnGui.Destroy(), WarnGui := ""
+		}
+		GuiClose()
+
+		WarnGui := Gui("+Owner" this.Gui.Hwnd " +AlwaysOnTop +Border +ToolWindow", name " Settings")
+		WarnGui.SetFont("s9 cDefault Norm", "MS Sans Serif")
+		WarnGui.OnEvent("Close", (*) => GuiClose())
+
+		SaveLocal(*) {
+			Config.Set("Warns", warnKey "_Volume", WarnGui["Volume"].Value)
+			Config.Set("Warns", warnKey "_PlayOnce", WarnGui["PlayOnce"].Value)
+			Config.WriteIni()
+			this.RefreshFeature("WarnsEnabled")
+		}
+
+		BrowseSound(*) {
+			SelectedFile := FileSelect(1, , "Select Sound File", "Audio (*.wav; *.mp3)")
+			if SelectedFile {
+				WarnGui["SoundFile"].Value := SelectedFile
+				Config.Set("Warns", warnKey "_SoundFile", SelectedFile)
+				Config.WriteIni()
+			}
+		}
+
+		TestLocalAudio(*) {
+			soundPath := WarnGui["SoundFile"].Value
+			if !FileExist(soundPath)
+				soundPath := "C:\Windows\Media\Windows Critical Stop.wav"
+			this.AudioPlayer := unset
+			this.AudioPlayer := Audio(soundPath)
+			vol := WarnGui["Volume"].Value
+			try this.AudioPlayer.Play(vol)
+		}
+
+		col := (Config.Get("Main", "DarkMode", 1) ? "White" : "Black")
+		WarnGui.Add("Text", "x15 y15 w50 c" col, "Volume:")
+		WarnGui.Add("Edit", "x65 y12 w50 Number vVolume", Config.Get("Warns", warnKey "_Volume", 25)).OnEvent("Change", SaveLocal)
+		WarnGui.Add("UpDown", "Range0-100", Config.Get("Warns", warnKey "_Volume", 25))
+		WarnGui.Add("Text", "x120 y15 c" col, "%")
+
+		WarnGui.Add("CheckBox", "x15 y40 w20 h20 vPlayOnce Checked" Config.Get("Warns", warnKey "_PlayOnce", 0)).OnEvent("Click", SaveLocal)
+		WarnGui.Add("Text", "x35 y43 w60 c" col, "Play Once")
+
+		WarnGui.Add("Text", "x15 y70 w50 c" col, "Sound:")
+		WarnGui.Add("Button", "x60 y67 w60 h22", "Browse").OnEvent("Click", BrowseSound)
+		WarnGui.Add("Button", "x125 y67 w60 h22", "Test").OnEvent("Click", TestLocalAudio)
+		WarnGui.Add("Edit", "x15 y95 w220 h20 ReadOnly vSoundFile", Config.Get("Warns", warnKey "_SoundFile", "C:\Windows\Media\Windows Critical Stop.wav"))
+
+		WarnGui.Show("w250 h130")
+		SetWindowTheme(WarnGui, Config.Get("Main", "DarkMode", 1))
+		SetWindowAttribute(WarnGui, Config.Get("Main", "DarkMode", 1))
 	}
 
 	CopyFieldSettings(*) {
@@ -358,20 +639,9 @@ class MainGui {
 		}
 	}
 
-	TestAudio(GuiCtrl, *) {
-		soundPath := Config.Get("Warns", "SoundFile", "C:\Windows\Media\Windows Critical Stop.wav")
-		if !FileExist(soundPath) {
-			soundPath := "C:\Windows\Media\Windows Critical Stop.wav"
-		}
-		this.AudioPlayer := unset
-		this.AudioPlayer := Audio(soundPath)
-		vol := Config.Get("Warns", "Volume", 25)
-		this.AudioPlayer.Play(vol)
-	}
-
 	ToggleFeature(GuiCtrl, *) {
 		isChecked := GuiCtrl.Value
-		FeatureName := GuiCtrl.Name
+		FeatureName := StrReplace(GuiCtrl.Name, "Main_", "")
 		Config.Set("Main", FeatureName, isChecked)
 		Config.WriteIni()
 
@@ -385,16 +655,14 @@ class MainGui {
 	}
 
 	SaveConfig(GuiCtrl, *) {
-		Split := StrSplit(GuiCtrl.Name, "_")
-		if (Split.Length != 2)
+		p := InStr(GuiCtrl.Name, "_")
+		if !p
 			return
-		Section := Split[1]
-		Key := Split[2]
-
+		Section := SubStr(GuiCtrl.Name, 1, p - 1)
+		Key := SubStr(GuiCtrl.Name, p + 1)
 		val := (GuiCtrl.Type = "DDL") ? GuiCtrl.Text : GuiCtrl.Value
 		Config.Set(Section, Key, val)
 		Config.WriteIni()
-
 		if (Section = "BoostBar")
 			this.RefreshFeature("BoostBarEnabled")
 		else if (Section = "Warns")
@@ -406,6 +674,8 @@ class MainGui {
 		else if (Section = "Communicator")
 			if IsSet(Comms)
 				Comms.UpdateSettings()
+		if (Key = "AccountType")
+			Reload
 
 		if (Key = "DarkMode") {
 			SetWindowTheme(this.Gui, GuiCtrl.Value)
@@ -416,11 +686,85 @@ class MainGui {
 			if IsSet(Boost) && Boost
 				Boost.Draw()
 		}
+
+		if (Section = "BoostBar")
+			if IsSet(Boost) && Boost
+				Boost.Draw()
+	}
+
+	LoadPreset(*) {
+		selected := this.Gui["PresetDDL"].Text
+		if !selected
+			return
+		Config.SetPreset(selected)
+		Reload
+	}
+
+	SavePreset(*) {
+		Config.WriteIni()
+		Tooltip "Preset saved."
+		SetTimer Tooltip, -750
+	}
+
+	NewPreset(*) {
+		presetName := InputBox("Enter a new preset name:", "New Preset", "w200 h100").Value
+		if (presetName = "")
+			return
+		presetName := RegExReplace(presetName, "[\\/:\*\?`"<>\|]", "")
+
+		if (StrLower(presetName) = "global") {
+			MsgBox("Cannot use 'global' as a preset name.", "Kairos", 48)
+			return
+		}
+
+		newPath := A_WorkingDir "\settings\" presetName ".ini"
+		try FileCopy(Config.path, newPath, 1)
+		Config.SetPreset(presetName)
+		Reload
+	}
+
+	DeletePreset(*) {
+		selected := this.Gui["PresetDDL"].Text
+		if (selected = "config" || selected = "") {
+			MsgBox("Cannot delete the default config profile.", "Kairos", 48)
+			return
+		}
+		result := MsgBox("Are you sure you want to delete the profile '" selected "'?", "Delete Profile", "YesNo Icon?")
+		if (result = "Yes") {
+			filePath := A_WorkingDir "\settings\" selected ".ini"
+			if FileExist(filePath)
+				FileDelete(filePath)
+				Config.SetPreset("config")
+				Reload
+		}
 	}
 
 	RefreshFeature(FeatureName) {
 		if (this.FeatureRefreshers.Has(FeatureName))
 			this.FeatureRefreshers[FeatureName]()
+	}
+
+	UpdateUI() {
+		accountType := Config.Get("Main", "AccountType", "Main")
+		activeFeatures := (accountType = "Main") ? "|Warns|Boost Bar|Key Alignment|Tracker|Magnifier|Stat Monitor|" : "|Alt Macro|Boost Bar|"
+
+		yBase := 40
+		visibleIdx := 0
+
+		for featureName in this.FeatureList {
+			ctrls := this.FeatureControls[featureName]
+			if InStr(activeFeatures, "|" featureName "|") {
+				ctrls.chk.Visible := true
+				ctrls.txt.Visible := true
+				ctrls.chk.Move(, yBase + (20 * visibleIdx))
+				ctrls.txt.move(, yBase + 3 + (20 * visibleIdx))
+				visibleIdx++
+			} else {
+				ctrls.chk.Visible := false
+				ctrls.txt.Visible := false
+			}
+		}
+		this.Gui["FeaturesGroup"].Move(, , , (20 * (visibleIdx + 1)))
 	}
 
 	SelectSound(GuiCtrl, *) {
@@ -445,18 +789,31 @@ class MainGui {
 	start(*) {
 		if this.ran
 			return
+
 		this.ran++
 		State.offsetY := GetYOffset(, &fail)
 		try {
 		if fail
 			msgbox "Failed to get y-Offset, this either means`n1. Your font is NOT the default size (e.g. font scale or broken roblox updates)`n2. Your font is wrong (e.g. custom font w/bloxstrap)`n3. the 'Pollen' text at the top is being covered`n4. Graphical issues`n5. I made a mistake...`n6. You don't have roblox open.", "Kairos", 16
 		}
-		Track.Toggle()
-		Warns.Toggle()
+		if (IsSet(Comms) && Comms.isEnabled && Comms.isServer)
+			Comms.BroadcastStart()
+		
+		accountType := Config.Get("Main", "AccountType", "Main")
+
 		Boost.Toggle()
-		Alt.Toggle()
-		Aligner.Toggle()
-		Mag.Toggle()
+		
+		if (accountType = "Main") {
+			if (Config.Get("Main", "TrackerEnabled", 0) || Config.Get("Main", "WarnsEnabled", 0))
+				Scanner.Toggle(1)
+			Track.Toggle()
+			Warns.Toggle()
+			Aligner.Toggle()
+			Mag.Toggle()
+			Stats.Toggle()
+		} else if (accountType = "Alt") {
+			Alt.Toggle()
+		}
 		this.Gui.Show("Hide")
 	}
 
@@ -482,6 +839,8 @@ class MainGui {
 				Aligner.Draw()
 			if IsSet(Mag) && Mag.Gui
 				Mag.Gui.Hide()
+			if IsSet(Stats) && Stats
+				Stats.Pause()
 
 			DetectHiddenWindows true
 			if WinExist("ahk_class AutoHotkey ahk_pid " State.CurrentWalk.pid)
@@ -507,6 +866,8 @@ class MainGui {
 	}
 
 	stop(*) {
+		if (this.ran && IsSet(Stats) && Stats)
+			Stats.Export()
 		Reload
 	}
 

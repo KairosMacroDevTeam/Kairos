@@ -93,4 +93,3 @@ If there are credits that are missing, create an issue post in the repository.
 [releases-link]: https://github.com/KairosMacroDevTeam/Kairos/releases
 [latest-release-link]: https://github.com/KairosMacroDevTeam/Kairos/releases/latest
 [discord-invite-link]: https://discord.gg/SWWfETTEjJ
-

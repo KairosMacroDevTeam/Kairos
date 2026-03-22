@@ -1,4 +1,4 @@
-class WindowTracker {
+﻿class WindowTracker {
 	static state := { hwnd: 0, x: 0, y: 0, w: 0, h: 0, ok: false, ts: 0 }
 	static interval := 50
 

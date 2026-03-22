@@ -1,4 +1,4 @@
-exe_path32 := A_AhkPath
+﻿exe_path32 := A_AhkPath
 exe_path64 := (A_Is64bitOS && FileExist("scripts\executables\AutoHotkey64.exe")) ? (A_WorkingDir "\scripts\executables\AutoHotkey64.exe") : A_AhkPath
 
 CloseScripts(hb := 0) {

@@ -1,4 +1,4 @@
-RunPath(movement, name := "", vars := "") {
+﻿RunPath(movement, name := "", vars := "") {
 	DetectHiddenWindows true
 	if WinExist("ahk_pid " State.currentWalk.pid " ahk_class AutoHotkey")
 		EndPath()
@@ -16,8 +16,8 @@ RunPath(movement, name := "", vars := "") {
 	#Include "Gdip_All.ahk"
 	#Include "Gdip_ImageSearch.ahk"
 	#Include "Roblox.ahk"
-	#Include "QPC.ahk"
-	#Include "Hypersleep.ahk"
+	#Include "Scheduler.ahk"
+	#Include "Utility.ahk"
 	#Include "Move.ahk"
 	#Include "JSON.ahk"
 
@@ -32,6 +32,9 @@ RunPath(movement, name := "", vars := "") {
 	#Include "%A_ScriptDir%\Assets\Bitmaps\"
 	#Include "Offset.ahk"
 	#Include "Movement.ahk"
+	#Include "General.ahk"
+	#Include "Sprinkler.ahk"
+
 	offsetY := ' State.offsetY '
 	' KeyVars() '
 	' vars '
@@ -306,140 +309,149 @@ EndPath() {
 	DetectHiddenWindows false
 }
 
-FieldDriftCompensation() {
+fieldDriftCompensation() {
 	GetRobloxClientPos()
-	winUp := Floor(windowHeight / 2.14), winDown := Floor(windowHeight / 1.88)
-	winLeft := Floor(windowWidth / 2.14), winRight := Floor(windowWidth / 1.88)
+	centerX := windowWidth // 2
+	centerY := windowHeight // 2
 
-	hmove := vmove := 0
-	if ((LocateSprinkler(&x, &y) = 1) && !(x >= winLeft && x <= winRight && y >= winUp && y <= winDown)) {
-		if ((x < winleft) && (hmove := LeftKey))
-			sendinput "{" LeftKey " down}"
-		else if ((x > winRight) && (hmove := RightKey))
-			sendinput "{" RightKey " down}"
-		if ((y < winUp) && (vmove := FwdKey))
-			sendinput "{" FwdKey " down}"
-		else if ((y > winDown) && (vmove := BackKey))
-			sendinput "{" BackKey " down}"
-		while (hmove || vmove) {
-			if (((hmove = LeftKey) && (x >= winLeft)) || ((hmove = RightKey) && (x <= winRight))) {
-				sendinput "{" hmove " up}"
-				hmove := ""
-			}
-			if (((vmove = FwdKey) && (y >= winUp)) || ((vmove = BackKey) && (y <= winDown))) {
-				sendinput "{" vmove " up}"
-				vmove := ""
-			}
-			Sleep 20
-			if ((A_Index >= 300)) {
-				sendinput "{" LeftKey " up}{" RightKey " up}{" FwdKey " up}{" BackKey " up}"
+	deadX := windowWidth * 0.035
+	deadY := windowHeight * 0.035
+
+	pwm := 50
+	heldKeys := Map(FwdKey, 0, BackKey, 0, LeftKey, 0, RightKey, 0)
+	miss := 0
+	start := A_TickCount
+
+	while (A_TickCount - start < 5000) {
+		if (LocateSprinkler(&x, &y) = 0) {
+			if (miss++ > 3)
 				break
+			continue
+		}
+		miss := 0
+
+		vecX := x - centerX
+		vecY := y - centerY
+		if (Abs(vecX) < deadX && Abs(vecY) < deadY)
+			break
+
+		maxDist := Max(Abs(vecX), Abs(vecY))
+		if (maxDist = 0)
+			maxDist := 1
+		dutyX := Abs(vecX) / maxDist
+		dutyY := Abs(vecY) / maxDist
+
+		targetX := (vecX > 0) ? RightKey : LeftKey
+		targetY := (vecY > 0) ? BackKey : FwdKey
+
+		cycle := Mod(A_TickCount, pwm)
+		shouldHoldX := (cycle < (pwm * dutyX)) && (Abs(vecX) > deadX)
+		shouldHoldY := (cycle < (pwm * dutyY)) && (Abs(vecY) > deadY)
+
+		for index, state in [[targetX, shouldHoldX], [targetY, shouldHoldY]] {
+			if (state[2] && !heldKeys[state[1]]) {
+				send "{" state[1] " down}"
+				heldKeys[state[1]] := true
+			} else if (!state[2] && heldKeys[state[1]]) {
+				send "{" state[1] " up}"
+				heldKeys[state[1]] := false
 			}
-			if (LocateSprinkler(&x, &y) = 0) {
-				sendinput "{" LeftKey " up}{" RightKey " up}{" FwdKey " up}{" BackKey " up}"
-				Loop 25 {
-					Sleep 20
-					if (LocateSprinkler(&x, &y) = 1) {
-						sendinput (hmove ? "{" hmove " down}" : "") (vmove ? "{" vmove " down}" : "")
-						continue 2
-					}
-				}
-				break
+		}
+
+		for k, v in heldKeys {
+			if (v && k != targetX && k != targetY) {
+				send "{" k " up}"
+				heldKeys[k] := false
 			}
+		}
+	}
+	for k, v in heldKeys {
+		if (v) {
+			send "{" k " up}"
+			heldKeys[k] := false
 		}
 	}
 }
 
-LocateSprinkler(&X := "", &Y := "") { ; find client coordinates of approximately closest saturator to player/center
-	n := State.SprinklerImages.Length
+LocateSprinkler(&X:="", &Y:="") {
+	static init := false
+	static SprinklerData := []
+	static lastPos := ""
 
 	hwnd := GetRobloxHWND()
 	GetRobloxClientPos(hwnd)
-	pBMScreen := Gdip_BitmapFromScreen(windowX "|" (windowY + State.offsetY + 75) "|" (hWidth := windowWidth) "|" (hHeight := windowHeight - State.offsetY - 75) "|")
-	Gdip_LockBits(pBMScreen, 0, 0, hWidth, hHeight, &hStride, &hScan, &hBitmapData, 1)
-	hWidth := NumGet(hBitmapData, 0, "UInt"), hHeight := NumGet(hBitmapData, 4, "UInt")
 
-	local n1width, n1height, n1Stride, n1Scan, n1BitmapData
-		, n2width, n2height, n2Stride, n2Scan, n2BitmapData
-		, n3width, n3height, n3Stride, n3Scan, n3BitmapData
-	for i, k in State.SprinklerImages
-	{
-		Gdip_GetImageDimensions(bitmaps[k], &n%i%Width, &n%i%Height)
-		Gdip_LockBits(bitmaps[k], 0, 0, n%i%Width, n%i%Height, &n%i%Stride, &n%i%Scan, &n%i%BitmapData)
-		n%i%Width := NumGet(n%i%BitmapData, 0, "UInt"), n%i%Height := NumGet(n%i%BitmapData, 4, "UInt")
+	if (!init) {
+		for i, k in State.SprinklerImages {
+			Gdip_GetImageDimensions(bitmaps[k], &nWidth, &nHeight)
+			Gdip_LockBits(bitmaps[k], 0, 0, nWidth, nHeight, &nStride, &nScan, &nBitmapData)
+			nWidth := NumGet(nBitmapData, 0, "UInt")
+			nHeight := NumGet(nBitmapData, 4, "UInt")
+			SprinklerData.Push({width: nWidth, height: nHeight, stride: nStride, scan: nScan, name: k})
+		}
+		init := true
+	}
+	found := false
+	name := ""
+	finalX := 0
+	finalY := 0
+	v := 50
+
+	if (lastPos) {
+		scanW := Round(windowWidth * 0.2)
+		scanH := Round(windowHeight * 0.2)
+		screenX := (windowX + lastPos.x) - (scanW // 2)
+		screenY := (windowY + lastPos.y) - (scanH // 2)
+
+		scanX := (screenX < windowX) ? windowX : screenX
+		scanY := (screenY < windowY) ? windowY : screenY
+
+		pBM := Gdip_BitmapFromScreen(scanX "|" scanY "|" scanW "|" scanH)
+		Gdip_GetImageDimensions(pBM, &lWidth, &lHeight)
+		Gdip_LockBits(pBM, 0, 0, lWidth, lHeight, &lStride, &lScan, &lBitmapData)
+
+		for img in SprinklerData {
+			sx2 := lWidth - img.width
+			sy2 := lHeight - img.height
+			if (sx2 > 0 && sy2 > 0 && Gdip_MultiLockedBitsSearch(lStride, lScan, lWidth, lHeight, img.Stride, img.Scan, img.Width, img.Height, &pos, 0, 0, sx2, sy2, v, 1, 1) > 0) {
+				finalX := (screenX - windowX) + SubStr(pos, 1, InStr(pos, ",") - 1)
+				finalY := (screenY - (windowY + State.offsetY + 75)) + SubStr(pos, InStr(pos, ",") + 1)
+				found := true
+				name := img.name
+				break
+			}
+		}
+		Gdip_UnlockBits(pBM, &lBitmapData)
+		Gdip_DisposeImage(pBM)
 	}
 
-	d := 11 ; divisions (odd positive integer such that w,h > n%i%Width,n%i%Height for all i<=n)
-	m := d // 2 ; midpoint of d (along with m + 1), used frequently in calculations
-	v := 50 ; variation
-	w := hWidth // d, h := hHeight // d
-
-	; to search from centre (approximately), we will split the rectangle like a pinwheel configuration and search outwards (notice SearchDirection)
-	Loop m + 1
-	{
-		if (A_Index = 1)
-		{
-			; initial rectangle (center)
-			d1 := m, d2 := m + 1
-			OuterX1 := d1 * w, OuterX2 := d2 * w
-			OuterY1 := d1 * h, OuterY2 := d2 * h
-			Loop n
-				if (Gdip_MultiLockedBitsSearch(hStride, hScan, hWidth, hHeight, n%A_Index%Stride, n%A_Index%Scan, n%A_Index%Width, n%A_Index%Height, &pos, OuterX1, OuterY1, OuterX2 - n%A_Index%Width + 1, OuterY2 - n%A_Index%Height + 1, v, 1, 1) > 0)
-					break 2
+	if (!found) {
+		hWidth := windowWidth
+		hHeight := windowHeight - State.offsetY - 75
+		pBMScreen := Gdip_BitmapFromScreen(windowX "|" (windowY + State.offsetY + 75) "|" hWidth "|" hHeight)
+		
+		Gdip_LockBits(pBMScreen, 0, 0, hWidth, hHeight, &hStride, &hScan, &hBitmapData)
+		for img in SprinklerData {
+			sx2 := hWidth - img.width
+			sy2 := hHeight - img.height
+			if (sx2 > 0 && sy2 > 0 && Gdip_MultiLockedBitsSearch(hStride, hScan, hWidth, hHeight, img.Stride, img.Scan, img.Width, img.Height, &pos, 0, 0, sx2, sy2, v, 1, 1) > 0) {
+				finalX := SubStr(pos, 1, InStr(pos, ",") - 1)
+				finalY := SubStr(pos, InStr(pos, ",") + 1)
+				found := true
+				name := img.name
+				break
+			}
 		}
-		else
-		{
-			; upper-right
-			dx1 := m + 2 - A_Index, dx2 := m + A_Index
-			OuterX1 := dx1 * w, OuterX2 := dx2 * w
-			dy1 := m + 1 - A_Index, dy2 := m + 2 - A_Index
-			OuterY1 := dy1 * h, OuterY2 := dy2 * h
-			Loop n
-				if (Gdip_MultiLockedBitsSearch(hStride, hScan, hWidth, hHeight, n%A_Index%Stride, n%A_Index%Scan, n%A_Index%Width, n%A_Index%Height, &pos, OuterX1, OuterY1, OuterX2 - n%A_Index%Width + 1, OuterY2 - n%A_Index%Height + 1, v, 2, 1) > 0)
-					break 2
-
-			; lower-right
-			dx1 := m - 1 + A_Index, dx2 := m + A_Index
-			OuterX1 := dx1 * w, OuterX2 := dx2 * w
-			dy1 := m + 2 - A_Index, dy2 := m + A_Index
-			OuterY1 := dy1 * h, OuterY2 := dy2 * h
-			Loop n
-				if (Gdip_MultiLockedBitsSearch(hStride, hScan, hWidth, hHeight, n%A_Index%Stride, n%A_Index%Scan, n%A_Index%Width, n%A_Index%Height, &pos, OuterX1, OuterY1, OuterX2 - n%A_Index%Width + 1, OuterY2 - n%A_Index%Height + 1, v, 5, 1) > 0)
-					break 2
-
-			; lower-left
-			dx1 := m + 1 - A_Index, dx2 := m - 1 + A_Index
-			OuterX1 := dx1 * w, OuterX2 := dx2 * w
-			dy1 := m - 1 + A_Index, dy2 := m + A_Index
-			OuterY1 := dy1 * h, OuterY2 := dy2 * h
-			Loop n
-				if (Gdip_MultiLockedBitsSearch(hStride, hScan, hWidth, hHeight, n%A_Index%Stride, n%A_Index%Scan, n%A_Index%Width, n%A_Index%Height, &pos, OuterX1, OuterY1, OuterX2 - n%A_Index%Width + 1, OuterY2 - n%A_Index%Height + 1, v, 4, 1) > 0)
-					break 2
-
-			; upper-left
-			dx1 := m + 1 - A_Index, dx2 := m + 2 - A_Index
-			OuterX1 := dx1 * w, OuterX2 := dx2 * w
-			dy1 := m + 1 - A_Index, dy2 := m - 1 + A_Index
-			OuterY1 := dy1 * h, OuterY2 := dy2 * h
-			Loop n
-				if (Gdip_MultiLockedBitsSearch(hStride, hScan, hWidth, hHeight, n%A_Index%Stride, n%A_Index%Scan, n%A_Index%Width, n%A_Index%Height, &pos, OuterX1, OuterY1, OuterX2 - n%A_Index%Width + 1, OuterY2 - n%A_Index%Height + 1, v, 7, 1) > 0)
-					break 2
-		}
+		Gdip_UnlockBits(pBMScreen, &hBitmapData)
+		Gdip_DisposeImage(pBMScreen)
 	}
-
-	Gdip_UnlockBits(pBMScreen, &hBitmapData)
-	for i, k in State.sprinklerImages
-		Gdip_UnlockBits(bitmaps[k], &n%i%BitmapData)
-	Gdip_DisposeImage(pBMScreen)
-
-	if pos
-	{
-		x := SubStr(pos, 1, InStr(pos, ",") - 1), y := 75 + SubStr(pos, InStr(pos, ",") + 1)
+	if (found) {
+		X := finalX, Y := finalY + 75
+		lastPos := {x: X, y: Y}
 		return 1
 	}
-	else
-	{
-		x := "", y := ""
+	else {
+		X := "", Y := ""
 		return 0
 	}
 }
